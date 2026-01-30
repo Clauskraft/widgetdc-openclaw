@@ -33,7 +33,7 @@ This repo packages **OpenClaw** for Railway with a small **/setup** web wizard s
 4. Copy the **Bot Token** and paste it into `/setup`
 5. Invite the bot to your server (OAuth2 URL Generator → scopes: `bot`, `applications.commands`; then choose permissions)
 
-## Local smoke test
+## Local testing
 
 ```bash
 docker build -t openclaw-railway-template .

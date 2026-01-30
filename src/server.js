@@ -96,7 +96,7 @@ function sleep(ms) {
 }
 
 async function waitForGatewayReady(opts = {}) {
-  const timeoutMs = opts.timeoutMs ?? 20_000;
+  const timeoutMs = opts.timeoutMs ?? 30_000;
   const start = Date.now();
   const endpoints = ["/openclaw", "/openclaw", "/", "/health"];
 
@@ -171,7 +171,7 @@ async function ensureGatewayRunning() {
   if (!gatewayStarting) {
     gatewayStarting = (async () => {
       await startGateway();
-      const ready = await waitForGatewayReady({ timeoutMs: 20_000 });
+      const ready = await waitForGatewayReady({ timeoutMs: 30_000 });
       if (!ready) {
         throw new Error("Gateway did not become ready in time");
       }
@@ -231,11 +231,6 @@ app.disable("x-powered-by");
 app.use(express.json({ limit: "1mb" }));
 
 app.get("/setup/healthz", (_req, res) => res.json({ ok: true }));
-
-app.get("/setup/app.js", requireSetupAuth, (_req, res) => {
-  res.type("application/javascript");
-  res.sendFile(path.join(process.cwd(), "src", "public", "setup-app.js"));
-});
 
 app.get("/setup/styles.css", requireSetupAuth, (_req, res) => {
   res.type("text/css");
@@ -457,7 +452,7 @@ function validatePayload(payload) {
   if (payload.authChoice && !VALID_AUTH_CHOICES.includes(payload.authChoice)) {
     return `Invalid authChoice: ${payload.authChoice}`;
   }
-  const stringFields = ["telegramToken", "discordToken", "slackBotToken", "slackAppToken", "authSecret"];
+  const stringFields = ["telegramToken", "discordToken", "slackBotToken", "slackAppToken", "authSecret", "model"];
   for (const field of stringFields) {
     if (payload[field] !== undefined && typeof payload[field] !== "string") {
       return `Invalid ${field}: must be a string`;
@@ -489,22 +484,39 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
     const onboard = await runCmd(OPENCLAW_NODE, clawArgs(onboardArgs));
 
     let extra = "";
+    extra += `\n[setup] Onboarding exit=${onboard.code} configured=${isConfigured()}\n`;
 
     const ok = onboard.code === 0 && isConfigured();
 
     if (ok) {
-      await runCmd(
+      extra += "\n[setup] Configuring gateway settings...\n";
+
+      const allowInsecureResult = await runCmd(
         OPENCLAW_NODE,
         clawArgs(["config", "set", "gateway.controlUi.allowInsecureAuth", "true"]),
       );
-      await runCmd(
+      extra += `[config] gateway.controlUi.allowInsecureAuth=true exit=${allowInsecureResult.code}\n`;
+
+      const tokenResult = await runCmd(
         OPENCLAW_NODE,
         clawArgs(["config", "set", "gateway.auth.token", OPENCLAW_GATEWAY_TOKEN]),
       );
-      await runCmd(
+      extra += `[config] gateway.auth.token exit=${tokenResult.code}\n`;
+
+      const proxiesResult = await runCmd(
         OPENCLAW_NODE,
         clawArgs(["config", "set", "--json", "gateway.trustedProxies", '["127.0.0.1"]']),
       );
+      extra += `[config] gateway.trustedProxies exit=${proxiesResult.code}\n`;
+
+      if (payload.model?.trim()) {
+        extra += `[setup] Setting model to ${payload.model.trim()}...\n`;
+        const modelResult = await runCmd(
+          OPENCLAW_NODE,
+          clawArgs(["models", "set", payload.model.trim()]),
+        );
+        extra += `[models set] exit=${modelResult.code}\n${modelResult.output || ""}`;
+      }
 
       const channelsHelp = await runCmd(
         OPENCLAW_NODE,
@@ -555,7 +567,9 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
         });
       }
 
+      extra += "\n[setup] Starting gateway...\n";
       await restartGateway();
+      extra += "[setup] Gateway started.\n";
     }
 
     return res.status(ok ? 200 : 500).json({
