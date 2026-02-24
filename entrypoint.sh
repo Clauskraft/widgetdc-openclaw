@@ -120,7 +120,7 @@ if [ ! -f "${CONFIG_FILE}" ]; then
       },
       "maxConcurrent": 5,
       "contextTokens": 800000,
-      "heartbeat": { "every": "0m", "target": "none" },
+      "heartbeat": { "every": "0m", "target": "none" }
       "timeoutSeconds": 180,
       "contextPruning": {
         "mode": "cache-ttl",
@@ -130,10 +130,10 @@ if [ ! -f "${CONFIG_FILE}" ]; then
       }
     },
     "list": [
-      { "id": "main",         "default": true, "workspace": "${STATE_DIR}/workspace-main",         "name": "Kaptajn Klo",    "skills": ["widgetdc-mcp","graph","health","rag","rag-fasedelt","qmd","cicd","act","widgetdc-personas","widgetdc-setup","writer","slack-bridge","cursor-sync","consulting-workflow"],  "identity": { "name": "Kaptajn Klo",    "emoji": "🦞" } },
+      { "id": "main",         "default": true, "workspace": "${STATE_DIR}/workspace-main",         "name": "Kaptajn Klo",    "skills": ["widgetdc-mcp","graph","health","rag","rag-fasedelt","qmd","cicd","act","widgetdc-personas","widgetdc-setup","writer","slack-bridge","cursor-sync","consulting-workflow"],  "identity": { "name": "Kaptajn Klo",    "emoji": "🦞" },  "heartbeat": { "every": "1h", "target": "last" } },
+      { "id": "infra",        "workspace": "${STATE_DIR}/workspace-infra",        "name": "Jernfod",        "skills": ["widgetdc-mcp","health","graph","cicd"],                                   "identity": { "name": "Jernfod",        "emoji": "🦾" },  "heartbeat": { "every": "1h", "target": "last" } },
       { "id": "github",       "workspace": "${STATE_DIR}/workspace-github",       "name": "Repo Sherif",    "skills": ["widgetdc-mcp","cicd","graph"],                                            "identity": { "name": "Repo Sherif",    "emoji": "🤠" } },
       { "id": "data",         "workspace": "${STATE_DIR}/workspace-data",         "name": "Graf-Oktopus",   "skills": ["widgetdc-mcp","graph","rag","qmd","rag-fasedelt","data-pipeline"],                        "identity": { "name": "Graf-Oktopus",   "emoji": "🐙" } },
-      { "id": "infra",        "workspace": "${STATE_DIR}/workspace-infra",        "name": "Jernfod",        "skills": ["widgetdc-mcp","health","graph","cicd"],                                   "identity": { "name": "Jernfod",        "emoji": "🦾" } },
       { "id": "strategist",   "workspace": "${STATE_DIR}/workspace-strategist",   "name": "Stor-Bjoern",   "skills": ["widgetdc-mcp","rag","rag-fasedelt","graph","qmd","widgetdc-personas","consulting-workflow"],                        "identity": { "name": "Stor-Bjoern",   "emoji": "🐻" } },
       { "id": "security",     "workspace": "${STATE_DIR}/workspace-security",     "name": "Cyber-Vipera",  "skills": ["widgetdc-mcp","graph","rag"],                                             "identity": { "name": "Cyber-Vipera",  "emoji": "🐍" } },
       { "id": "analyst",      "workspace": "${STATE_DIR}/workspace-analyst",      "name": "Tal-Trold",     "skills": ["widgetdc-mcp","rag","graph","qmd"],                                       "identity": { "name": "Tal-Trold",     "emoji": "📊" } },
@@ -146,7 +146,7 @@ if [ ! -f "${CONFIG_FILE}" ]; then
   },
   "channels": {
     "defaults": {
-      "heartbeat": { "showOk": false, "showAlerts": false, "useIndicator": false }
+      "heartbeat": { "showOk": false, "showAlerts": true, "useIndicator": true }
     },
     "slack": {
       "enabled": true,
@@ -154,7 +154,7 @@ if [ ! -f "${CONFIG_FILE}" ]; then
       "appToken": "${SLACK_APP_TOKEN}",
       "botToken": "${SLACK_BOT_TOKEN}",
       "dmPolicy": "pairing",
-      "groupPolicy": "allowlist",
+      "groupPolicy": "open",
       "channels": {}
     }
   },
@@ -165,10 +165,41 @@ SEEDEOF
   echo "[entrypoint] Full WidgeTDC config seeded"
 fi
 
+# ── Heartbeat migration — tilføj heartbeat til main+infra hvis mangler ──────
+if [ -f "${CONFIG_FILE}" ] && command -v node >/dev/null 2>&1; then
+  export CONFIG_FILE
+  node -e "
+    const fs = require('fs');
+    const path = process.env.CONFIG_FILE;
+    const cfg = JSON.parse(fs.readFileSync(path, 'utf8'));
+    const list = cfg.agents?.list || [];
+    let changed = false;
+    for (const a of list) {
+      if ((a.id === 'main' || a.id === 'infra') && !a.heartbeat) {
+        a.heartbeat = { every: '1h', target: 'last' };
+        changed = true;
+      }
+    }
+    if (changed) {
+      fs.writeFileSync(path, JSON.stringify(cfg, null, 2));
+      console.log('[entrypoint] Added heartbeat to main+infra');
+    }
+  " 2>/dev/null || true
+fi
+
+# ── Slack groupPolicy migration — opdater allowlist → open (ingen channel-allowlist nødvendig) ──────
+if [ -f "${CONFIG_FILE}" ] && grep -q '"groupPolicy".*"allowlist"' "${CONFIG_FILE}" 2>/dev/null && grep -q '"slack"' "${CONFIG_FILE}" 2>/dev/null; then
+  if command -v node >/dev/null 2>&1 && [ -f "${OPENCLAW_ENTRY:-/openclaw/dist/entry.js}" ]; then
+    node "${OPENCLAW_ENTRY:-/openclaw/dist/entry.js}" config set "channels.slack.groupPolicy" "open" 2>/dev/null \
+      && echo "[entrypoint] Migrated Slack groupPolicy allowlist → open" \
+      || true
+  fi
+fi
+
 # ── Slack channel migration — tilføj channels.slack hvis env vars sat og mangler ──────
 if [ -f "${CONFIG_FILE}" ] && [ -n "${SLACK_APP_TOKEN}" ] && [ -n "${SLACK_BOT_TOKEN}" ] && ! grep -q '"slack"' "${CONFIG_FILE}" 2>/dev/null; then
   if command -v node >/dev/null 2>&1 && [ -f "${OPENCLAW_ENTRY:-/openclaw/dist/entry.js}" ]; then
-    SLACK_JSON='{"enabled":true,"mode":"socket","appToken":"'"${SLACK_APP_TOKEN}"'","botToken":"'"${SLACK_BOT_TOKEN}"'","dmPolicy":"pairing","groupPolicy":"allowlist","channels":{}}'
+    SLACK_JSON='{"enabled":true,"mode":"socket","appToken":"'"${SLACK_APP_TOKEN}"'","botToken":"'"${SLACK_BOT_TOKEN}"'","dmPolicy":"pairing","groupPolicy":"open","channels":{}}'
     node "${OPENCLAW_ENTRY:-/openclaw/dist/entry.js}" config set "channels.slack" "${SLACK_JSON}" 2>/dev/null \
       && echo "[entrypoint] Added channels.slack to config" \
       || echo "[entrypoint] Could not add channels.slack (add manually via /setup Config Editor)"
@@ -232,15 +263,33 @@ setup_agent_workspace() {
 **Gateway:** https://openclaw-production-9570.up.railway.app
 <!-- AUTO-GENERATED -->"
 
+  # VISION.md — fælles vision alle agenter arbejder mod
+  write_ws_file "VISION.md" "# WidgeTDC Vision — Fælles mål for alle agenter
+
+**Mission:** McKinsey-grade AI-drevet management consulting — evidensbaseret, skalerbart, proaktivt.
+
+**KPI'er vi arbejder mod:**
+- Knowledge graph: 165K+ noder opdateret, kvalitetssikret
+- MCP tools: 335+ tools tilgængelige, dokumenteret
+- Health: Backend, RLM, Neo4j, OpenClaw — alle grønne
+- Insights: 17K+ Insights, 10K StrategicInsights — syntetiseret til anbefalinger
+- Proaktivitet: Agenter starter arbejde, overvåger, alerter ved afvigelser
+
+**Din rolle:** Du er en del af teamet. Læs din SOUL.md og BOOTSTRAP.md. Start dit arbejde ved session/h heartbeat.
+<!-- AUTO-GENERATED -->"
+
   # SOUL.md — adfærd og filosofi
   write_ws_file "SOUL.md" "# ${AGENT_EMOJI} ${AGENT_NAME} — Soul
 Du er ${AGENT_NAME} i WidgeTDC AI-platformen.
 ${AGENT_ROLE}
 
+## Vision
+Læs VISION.md — vi arbejder alle mod samme overordnede mål. Start dit arbejde proaktivt.
+
 ## Core values
 - Evidensbaseret: altid citer kilde fra graph eller skill output
 - Præcis: aldrig estimer uden datagrundlag
-- Proaktiv: monitorér og alert ved afvigelser
+- Proaktiv: monitorér, start arbejde, alert ved afvigelser
 <!-- AUTO-GENERATED -->"
 
   # TOOLS.md — tilgængelige MCP tools
@@ -286,17 +335,24 @@ widgetdc_mcp(\"consulting.agent.memory.store\", {
 \`\`\`
 <!-- AUTO-GENERATED -->"
 
-  # BOOTSTRAP.md — opstartsrutine
+  # BOOTSTRAP.md — opstartsrutine + første opgave
   write_ws_file "BOOTSTRAP.md" "# ${AGENT_EMOJI} ${AGENT_NAME} — Bootstrap
 Ved session-start, kør i rækkefølge:
-1. Indlæs memory: widgetdc_mcp consulting.agent.memory.recall agentId=${AGENT_ID}
-2. Tjek system: widgetdc_mcp integration.system_health
-3. Hent lessons: graph.read_cypher MATCH (l:Lesson) RETURN l.title, l.content LIMIT 5
-4. Aktivér rolle: ${AGENT_ROLE}
+1. Læs VISION.md — fælles mål
+2. Indlæs memory: widgetdc_mcp consulting.agent.memory.recall agentId=${AGENT_ID}
+3. Tjek system: widgetdc_mcp integration.system_health (hvis tilgængeligt)
+4. Hent lessons: graph.read_cypher MATCH (l:Lesson) RETURN l.title, l.content LIMIT 5
+5. **Start arbejde:** Udfør din rolle — ${AGENT_ROLE}
 <!-- AUTO-GENERATED -->"
 
-  # HEARTBEAT.md — tom fil = heartbeat deaktiveret (OpenClaw design)
-  write_ws_file "HEARTBEAT.md" ""
+  # HEARTBEAT.md — agent-specifik checklist (tom = skip; indhold = kør heartbeat)
+  write_ws_file "HEARTBEAT.md" "# ${AGENT_EMOJI} Heartbeat checklist
+- Læs VISION.md — arbejd mod fælles mål
+- Første opgave: ${AGENT_ROLE}
+- Tjek om der er nye tasks: agent.task.fetch (hvis du har orchestrator/cicd)
+- Hvis noget kræver opmærksomhed: rapporter (ikke HEARTBEAT_OK)
+- Ellers: HEARTBEAT_OK
+<!-- AUTO-GENERATED -->"
 
   # AGENTS.md — oversigt over hele agent-teamet
   write_ws_file "AGENTS.md" "# WidgeTDC Agent Team
