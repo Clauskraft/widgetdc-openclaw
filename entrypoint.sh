@@ -147,6 +147,15 @@ if [ ! -f "${CONFIG_FILE}" ]; then
   "channels": {
     "defaults": {
       "heartbeat": { "showOk": false, "showAlerts": false, "useIndicator": false }
+    },
+    "slack": {
+      "enabled": true,
+      "mode": "socket",
+      "appToken": "${SLACK_APP_TOKEN}",
+      "botToken": "${SLACK_BOT_TOKEN}",
+      "dmPolicy": "pairing",
+      "groupPolicy": "allowlist",
+      "channels": {}
     }
   },
   "commands": { "native": "auto", "text": true, "bash": true, "config": true, "restart": true }
@@ -154,6 +163,16 @@ if [ ! -f "${CONFIG_FILE}" ]; then
 SEEDEOF
   chown -R openclaw:openclaw "${STATE_DIR}" 2>/dev/null || true
   echo "[entrypoint] Full WidgeTDC config seeded"
+fi
+
+# ── Slack channel migration — tilføj channels.slack hvis env vars sat og mangler ──────
+if [ -f "${CONFIG_FILE}" ] && [ -n "${SLACK_APP_TOKEN}" ] && [ -n "${SLACK_BOT_TOKEN}" ] && ! grep -q '"slack"' "${CONFIG_FILE}" 2>/dev/null; then
+  if command -v node >/dev/null 2>&1 && [ -f "${OPENCLAW_ENTRY:-/openclaw/dist/entry.js}" ]; then
+    SLACK_JSON='{"enabled":true,"mode":"socket","appToken":"'"${SLACK_APP_TOKEN}"'","botToken":"'"${SLACK_BOT_TOKEN}"'","dmPolicy":"pairing","groupPolicy":"allowlist","channels":{}}'
+    node "${OPENCLAW_ENTRY:-/openclaw/dist/entry.js}" config set "channels.slack" "${SLACK_JSON}" 2>/dev/null \
+      && echo "[entrypoint] Added channels.slack to config" \
+      || echo "[entrypoint] Could not add channels.slack (add manually via /setup Config Editor)"
+  fi
 fi
 
 # ── Skill migration — tilføj nye skills til eksisterende config ──────
