@@ -1,13 +1,20 @@
 /**
  * Writer Skill for OpenClaw — Skribleren ✍️
  *
- * Langt-format skriveagent med Neo4j Context Folding.
- * Skriver alt fra kort memo til hel bog (80K+ ord) med persistent state.
+ * Langt-format skriveagent med Neo4j Context Folding + RLM Engine reasoning.
+ *
+ * Arkitektur:
+ *   - Gemini 2.5 Flash (1M context) er primær skrivemodel
+ *   - RLM Engine (/reason) bruges til langt-format kapitelskrivning:
+ *     * Dyb reasoning om struktur, argumentation og konsistens
+ *     * Retrieval af graph-evidens via RLM's MCP-bridge
+ *     * Kædet reasoning: outline → kapitel → revision
+ *   - Neo4j Context Folding: persistent state på tværs af sessioner
  *
  * Book Architecture Protocol (4 faser):
  *   Fase 0: Opret Book-node i grafen som ankerpunkt
  *   Fase 1: Outline — hvert kapitel som Chapter-node
- *   Fase 2: Skriv kapitel for kapitel (Context Folding via graph)
+ *   Fase 2: Skriv via RLM Engine (Context Folding + deep reasoning)
  *   Fase 3: Konsistens-check hvert 5. kapitel
  *
  * Context Folding:
@@ -17,6 +24,54 @@
  */
 
 import { widgetdc_mcp } from '../widgetdc-mcp/index';
+
+// ─── RLM Engine integration ───────────────────────────────────────────────
+
+const RLM_URL = process.env.RLM_ENGINE_URL || 'https://rlm-engine-production.up.railway.app';
+
+/**
+ * Kald RLM Engine /reason for dyb skrive-reasoning.
+ * Bruges til kapitelskrivning, outline-generering og konsistens-check.
+ */
+async function rlmReason(prompt: string, context: Record<string, unknown> = {}, mode = 'deep'): Promise<string> {
+  try {
+    const res = await fetch(`${RLM_URL}/reason`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Connection': 'keep-alive' },
+      body: JSON.stringify({
+        task: 'writer_task',
+        context: { prompt, ...context },
+        reasoning_mode: mode,
+      }),
+      signal: AbortSignal.timeout(120_000), // 2 min timeout for lange tekster
+    });
+    if (!res.ok) throw new Error(`RLM ${res.status}`);
+    const data = await res.json() as { recommendation?: string; reasoning?: string };
+    return data.recommendation ?? data.reasoning ?? '(ingen tekst returneret)';
+  } catch (e) {
+    console.warn(`[writer] RLM Engine unavailable: ${e}. Falling back to prompt-only.`);
+    return `[RLM unavailable — skriv tekst baseret på: ${prompt.substring(0, 200)}]`;
+  }
+}
+
+/**
+ * Kald RLM /operations/dreamscape for autonom bog-skrivning.
+ * Bruges til at lade RLM Engine selv koordinere kapitel-for-kapitel skrivning.
+ */
+async function rlmDreamscape(task: string): Promise<unknown> {
+  try {
+    const res = await fetch(`${RLM_URL}/operations/dreamscape`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ task, reasoning_mode: 'deep' }),
+      signal: AbortSignal.timeout(300_000), // 5 min for hel bog-session
+    });
+    if (!res.ok) throw new Error(`Dreamscape ${res.status}`);
+    return res.json();
+  } catch (e) {
+    return { error: String(e), message: 'RLM Dreamscape ikke tilgængelig' };
+  }
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -52,16 +107,23 @@ export async function writer(action = 'list', ...args: string[]): Promise<unknow
   switch (action.toLowerCase().trim()) {
     case 'new':     return writerNew(args[0], args[1]);
     case 'outline': return writerOutline(args[0]);
-    case 'chapter': return writerChapter(args[0], parseInt(args[1] ?? '1'));
+    case 'chapter': return writerChapterRlm(args[0], parseInt(args[1] ?? '1'));
+    case 'write':   return writerChapterRlm(args[0], parseInt(args[1] ?? '1'));
+    case 'auto':    return writerAuto(args[0]);
+    case 'fold':    return writerFold(args[0], args.slice(1).join(' '));
     case 'status':  return writerStatus(args[0]);
     case 'list':    return writerList();
     case 'memo':    return writerMemo(args.join(' '));
     case 'brief':   return writerBrief(args.join(' '));
     default:
       return {
-        help: 'Skribleren — Langt-format skriveagent',
+        help: 'Skribleren — Langt-format skriveagent med RLM + Context Folding',
         commands: {
-          '/writer new <titel> [genre]':       'Opret nyt bog-projekt i grafen',
+          '/writer new <titel> [genre]':       'Opret nyt bog-projekt i grafen (Fase 0)',
+          '/writer chapter <bookId> <idx>':    'Skriv kapitel via RLM Engine + Context Folding',
+          '/writer write <bookId> <idx>':      'Alias for chapter',
+          '/writer auto <bookId>':             'Autonom bog-skrivning via RLM Dreamscape',
+          '/writer fold <bookId> <summary>':   'Gem context fold til grafen',
           '/writer outline <bookId>':           'Vis eller generer outline',
           '/writer chapter <bookId> <idx>':     'Skriv kapitel N',
           '/writer status <bookId>':            'Fremskridt og ordantal',
@@ -208,6 +270,201 @@ async function writerChapter(bookId?: string, idx = 1): Promise<unknown> {
       'Gem kapitlet med /graph query:',
       `MATCH (c:Chapter {id: "${ch.chapterId}"}) SET c.text = "<tekst>", c.wordCount = <n>, c.summary = "<2-3 sætninger>", c.lastLine = "<bogens sidste sætning>", c.status = "done"`,
     ],
+  };
+}
+
+// ─── Kapitel via RLM + Context Folding ───────────────────────────────────
+
+/**
+ * Skriv kapitel via RLM Engine /reason med fuld Context Folding.
+ *
+ * Flow:
+ *   1. Hent kapitel-brief + forrige lastLine fra Neo4j (Context Fold load)
+ *   2. Kald RLM Engine /reason med kapitel-kontekst (deep reasoning mode)
+ *   3. Gem resultatet til Neo4j (Chapter.text + summary + lastLine)
+ *   4. Opdater Book.totalWords
+ */
+async function writerChapterRlm(bookId?: string, idx = 1): Promise<unknown> {
+  if (!bookId) return { error: 'Angiv bookId: /writer chapter <bookId> <idx>' };
+
+  // Step 1: Load kontekst fra graf (Context Fold)
+  const result = await widgetdc_mcp('graph.read_cypher', {
+    query: `
+      MATCH (b:Book {id: $bookId})-[:HAS_CHAPTER]->(c:Chapter {index: $idx})
+      OPTIONAL MATCH (b)-[:HAS_CHAPTER]->(prev:Chapter {index: $prevIdx})
+      RETURN b.title AS bookTitle, b.genre AS genre, b.targetWords AS bookTarget,
+             c.id AS chapterId, c.title AS title, c.premise AS premise,
+             c.keyPoints AS keyPoints, c.targetWords AS targetWords,
+             c.status AS status,
+             prev.summary AS previousSummary, prev.lastLine AS previousLastLine,
+             prev.title AS previousTitle
+    `,
+    params: { bookId, idx, prevIdx: idx - 1 },
+  });
+
+  const rows = (result as any)?.results ?? (result as any)?.result?.results ?? [];
+  if (!rows.length) {
+    return { error: `Kapitel ${idx} ikke fundet i bog "${bookId}".` };
+  }
+  const ch = rows[0];
+
+  if (ch.status === 'done') {
+    return {
+      warning: `Kapitel ${idx} er allerede skrevet (status: done).`,
+      chapterId: ch.chapterId,
+      tip: `Brug /graph query for at overskrive: MATCH (c:Chapter {id: "${ch.chapterId}"}) SET c.status = 'pending'`,
+    };
+  }
+
+  // Step 2: Byg RLM-prompt med fuld kontekst
+  const continuationLine = ch.previousLastLine
+    ? `\nFortsæt direkte fra denne sætning: "${ch.previousLastLine}"`
+    : '\nDette er det første kapitel — start bogens åbning.';
+
+  const rlmPrompt = `
+Skriv kapitel ${idx} af bogen "${ch.bookTitle}" (genre: ${ch.genre}).
+
+KAPITEL-TITEL: ${ch.title}
+FORMÅL: ${ch.premise ?? 'ikke specificeret'}
+MÅL: ~${ch.targetWords ?? 3000} ord
+NØGLEPUNKTER: ${JSON.stringify(ch.keyPoints ?? [])}
+
+FORRIGE KAPITEL (${ch.previousTitle ?? 'ingen'}):
+Slutningen: "${ch.previousSummary ?? 'ingen opsummering'}"
+${continuationLine}
+
+INSTRUKTIONER:
+- Skriv det fulde kapitel nu (~${ch.targetWords ?? 3000} ord)
+- Afslut med en sætning der giver naturlig fortsættelse til næste kapitel
+- Output KUN selve kapitel-teksten (ingen meta-kommentarer)
+- Brug Situation → Complication → Resolution struktur for non-fiction
+- For fiction: følg bogens genre og tone
+  `.trim();
+
+  // Step 3: Kald RLM Engine (deep reasoning for langt-format)
+  const writtenText = await rlmReason(rlmPrompt, {
+    bookId, chapterId: ch.chapterId, chapterIndex: idx,
+    genre: ch.genre, targetWords: ch.targetWords ?? 3000,
+  }, 'deep');
+
+  // Beregn ordantal og udtræk lastLine
+  const wordCount = writtenText.split(/\s+/).filter(w => w.length > 0).length;
+  const sentences = writtenText.split(/[.!?]+/).filter(s => s.trim().length > 10);
+  const lastLine = sentences[sentences.length - 1]?.trim().substring(0, 300) ?? '';
+  const summary = writtenText.substring(0, 500).replace(/\n/g, ' ');
+
+  // Step 4: Gem til Neo4j (Context Fold save)
+  await widgetdc_mcp('graph.write_cypher', {
+    query: `
+      MATCH (c:Chapter {id: $chapterId})
+      SET c.text      = $text,
+          c.wordCount = $wordCount,
+          c.summary   = $summary,
+          c.lastLine  = $lastLine,
+          c.status    = 'done',
+          c.updatedAt = datetime()
+      WITH c
+      MATCH (b:Book)-[:HAS_CHAPTER]->(c)
+      SET b.totalWords = b.totalWords + $wordCount,
+          b.updatedAt  = datetime()
+    `,
+    params: { chapterId: ch.chapterId, text: writtenText, wordCount, summary, lastLine },
+  });
+
+  return {
+    success:    true,
+    bookId,
+    chapterId:  ch.chapterId,
+    chapterIdx: idx,
+    title:      ch.title,
+    wordCount,
+    lastLine,
+    preview:    writtenText.substring(0, 500) + '...',
+    nextStep:   `Skriv næste kapitel: /writer chapter ${bookId} ${idx + 1}`,
+    foldSaved:  true,
+  };
+}
+
+// ─── Autonom bog-skrivning via RLM Dreamscape ────────────────────────────
+
+/**
+ * Kør autonom kapitel-for-kapitel skrivning via RLM Engine Dreamscape.
+ * RLM orchestrerer selv hele skriveprocessen via Context Folding.
+ */
+async function writerAuto(bookId?: string): Promise<unknown> {
+  if (!bookId) return { error: 'Angiv bookId: /writer auto <bookId>' };
+
+  // Hent bog-status for at bygge kontekst til RLM
+  const status = await writerStatus(bookId) as any;
+  if (status.error) return status;
+
+  const task = `
+AUTONOMT BOG-SKRIVEPROGRAM — Context Folding Protocol
+
+Bog: "${status.title}" (${status.genre})
+Mål: ${status.targetWords} ord total
+Status: ${status.doneChapters}/${status.totalChapters} kapitler skrevet (${status.progress})
+
+MISSION:
+1. Query Neo4j for alle PLANNED Chapter-noder i bog ${bookId}
+2. For hvert uafsluttet kapitel (status != 'done'):
+   a. Load forrige kapitel's lastLine fra Neo4j
+   b. Skriv kapitlet (~3000 ord)
+   c. Gem Chapter.text + summary + lastLine til Neo4j
+   d. Opdater Book.totalWords
+3. Kør konsistens-check efter hvert 5. kapitel
+4. Rapport: ordantal, % completion, eventuelle problemer
+
+Brug graph.read_cypher og graph.write_cypher via MCP.
+Gem progress løbende — Context Folding er kritisk for store projekter.
+  `.trim();
+
+  const dreamscapeResult = await rlmDreamscape(task);
+
+  return {
+    bookId,
+    title:            status.title,
+    action:           'autonomous_writing',
+    rlm_dreamscape:   dreamscapeResult,
+    statusBefore:     status,
+    tip:              'Tjek fremskridt med: /writer status ' + bookId,
+  };
+}
+
+// ─── Context Fold manuelt ─────────────────────────────────────────────────
+
+/**
+ * Gem en manuel context fold til Neo4j — bruges ved sessionsskift.
+ */
+async function writerFold(bookId?: string, summary?: string): Promise<unknown> {
+  if (!bookId || !summary) {
+    return { error: 'Brug: /writer fold <bookId> <hvad du har lært/skrevet>' };
+  }
+
+  await widgetdc_mcp('graph.write_cypher', {
+    query: `
+      MERGE (f:ContextFold {bookId: $bookId, createdAt: datetime()})
+      SET f.summary   = $summary,
+          f.agentId   = 'skribleren',
+          f.updatedAt = datetime()
+    `,
+    params: { bookId, summary },
+  });
+
+  // Gem også som AgentMemory for global tilgængelighed
+  await widgetdc_mcp('graph.write_cypher', {
+    query: `
+      MERGE (m:AgentMemory {agentId: 'skribleren', key: $key})
+      SET m.value = $summary, m.type = 'context_fold', m.updatedAt = datetime()
+    `,
+    params: { key: `fold_${bookId}_${Date.now()}`, summary },
+  });
+
+  return {
+    success: true,
+    bookId,
+    summary,
+    message: `Context fold gemt til Neo4j. Næste session: /writer status ${bookId} for at se progress.`,
   };
 }
 
