@@ -163,6 +163,26 @@ async function startGateway() {
   fs.mkdirSync(STATE_DIR, { recursive: true });
   fs.mkdirSync(WORKSPACE_DIR, { recursive: true });
 
+  // Sync skills + agent-souls from app directory to workspace on every gateway start.
+  // Skills in /app/skills/ are deployed via git, but OpenClaw reads from WORKSPACE_DIR.
+  // Strategy: symlink WORKSPACE_DIR/skills → /app/skills (auto-updates on redeploy).
+  //           symlink WORKSPACE_DIR/agent-souls → /app/agent-souls
+  const appDir = path.dirname(new URL(import.meta.url).pathname); // /app/src → resolve to /app
+  const appRoot = path.resolve(appDir, "..");
+  for (const dir of ["skills", "agent-souls"]) {
+    const src  = path.join(appRoot, dir);
+    const dest = path.join(WORKSPACE_DIR, dir);
+    try {
+      if (!fs.existsSync(src)) continue; // skip if not in repo
+      // Remove existing (broken symlink, old dir, or outdated copy)
+      try { fs.rmSync(dest, { recursive: true, force: true }); } catch {}
+      fs.symlinkSync(src, dest, "dir");
+      console.log(`[workspace] Linked ${dir}: ${src} → ${dest}`);
+    } catch (err) {
+      console.warn(`[workspace] Could not link ${dir}: ${err.message}`);
+    }
+  }
+
   // Clean up stale lock files before spawning to prevent startup failures
   for (const lockPath of [
     path.join(STATE_DIR, "gateway.lock"),
