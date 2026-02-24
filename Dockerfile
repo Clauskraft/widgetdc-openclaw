@@ -101,8 +101,19 @@ COPY --from=openclaw-build /openclaw /openclaw
 RUN printf '%s\n' '#!/usr/bin/env bash' 'exec node /openclaw/dist/entry.js "$@"' > /usr/local/bin/openclaw \
   && chmod +x /usr/local/bin/openclaw
 
-# Cache-bust: change WIDGETDC_BUILD_ID to force rebuild of app code layers
-ARG WIDGETDC_BUILD_ID=20260224-003
+# Create openclaw user and install Homebrew FIRST (expensive — keep cached)
+RUN useradd -m -s /bin/bash openclaw \
+  && mkdir -p /data && chown openclaw:openclaw /data \
+  && mkdir -p /home/linuxbrew/.linuxbrew && chown -R openclaw:openclaw /home/linuxbrew
+
+USER openclaw
+RUN NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Switch back to root to copy app code (after Homebrew cached layer)
+USER root
+
+# Cache-bust: bump to force rebuild of src + skills without invalidating Homebrew
+ARG WIDGETDC_BUILD_ID=20260224-004
 RUN echo "Build: ${WIDGETDC_BUILD_ID}"
 
 COPY src ./src
@@ -112,14 +123,8 @@ RUN chmod +x ./entrypoint.sh
 # Bundle WidgeTDC skills into image (synced to volume at runtime by entrypoint)
 COPY skills/ /app/skills/
 
-# Create openclaw user, set up directories, install Homebrew as that user
-RUN useradd -m -s /bin/bash openclaw \
-  && chown -R openclaw:openclaw /app \
-  && mkdir -p /data && chown openclaw:openclaw /data \
-  && mkdir -p /home/linuxbrew/.linuxbrew && chown -R openclaw:openclaw /home/linuxbrew
-
-USER openclaw
-RUN NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+# Fix ownership after copy
+RUN chown -R openclaw:openclaw /app
 
 ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:${PATH}"
 ENV HOMEBREW_PREFIX="/home/linuxbrew/.linuxbrew"
