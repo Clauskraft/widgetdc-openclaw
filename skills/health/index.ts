@@ -6,6 +6,10 @@
  * - RLM Engine (repl_manager, 335 tools, components)
  * - Consulting Frontend
  * - Neo4j Graph (connectivity + node count)
+ *
+ * Memory Integration:
+ * - Gemmer health issues til AgentMemory for trending
+ * - Logger degraded status for later analysis
  */
 
 import { widgetdc_mcp } from '../widgetdc-mcp/index';
@@ -13,6 +17,39 @@ import { widgetdc_mcp } from '../widgetdc-mcp/index';
 const BACKEND  = process.env.WIDGETDC_BACKEND_URL  || 'https://backend-production-d3da.up.railway.app';
 const RLM      = process.env.RLM_ENGINE_URL         || 'https://rlm-engine-production.up.railway.app';
 const FRONTEND = process.env.CONSULTING_FRONTEND_URL || 'https://consulting-production-b5d8.up.railway.app';
+
+/**
+ * Gem health issue til memory for trending/analysis
+ */
+async function logHealthIssue(issues: string[], overall: string): Promise<void> {
+  if (issues.length === 0) return;
+
+  try {
+    await widgetdc_mcp('consulting.agent.memory.store', {
+      agentId: 'health',
+      content: `Health check: ${overall}. Issues: ${issues.join('; ')}`,
+      type: 'health_issue',
+    });
+
+    await widgetdc_mcp('graph.write_cypher', {
+      query: `
+        CREATE (h:HealthEvent {
+          timestamp: datetime(),
+          overall: $overall,
+          issues: $issues,
+          issueCount: $issueCount
+        })
+      `,
+      params: {
+        overall,
+        issues,
+        issueCount: issues.length,
+      },
+    });
+  } catch {
+    // Non-critical, ignore
+  }
+}
 
 async function ping(url: string, path = '/health'): Promise<{ ok: boolean; latencyMs: number; status?: number; data?: unknown }> {
   const t = Date.now();
@@ -61,10 +98,24 @@ export async function health(mode = 'full'): Promise<unknown> {
   const graphOk = (graph as any)?.success === true || (graph as any)?.status === 'online';
 
   const allOk = backend.ok && rlm.ok && components['repl_manager'] !== false;
+  const overall = allOk ? '✅ healthy' : '⚠️ degraded';
+
+  const issues = [
+    !backend.ok  && `❌ Backend nede (${backend.status})`,
+    !rlm.ok      && `❌ RLM Engine nede (${rlm.status})`,
+    failedComponents.length && `⚠️ RLM komponenter: ${failedComponents.join(', ')}`,
+    !frontend.ok && `⚠️ Frontend nede (${(frontend as any).status})`,
+    !graphOk     && '⚠️ Neo4j graph utilgængelig',
+  ].filter(Boolean) as string[];
+
+  // Log issues til memory for trending (async, don't wait)
+  if (issues.length > 0) {
+    logHealthIssue(issues, overall).catch(() => {});
+  }
 
   return {
     timestamp: new Date().toISOString(),
-    overall:   allOk ? '✅ healthy' : '⚠️ degraded',
+    overall,
     services: {
       backend: {
         ok:           backend.ok,
@@ -94,12 +145,6 @@ export async function health(mode = 'full'): Promise<unknown> {
         response: graph,
       },
     },
-    issues: [
-      !backend.ok  && `❌ Backend nede (${backend.status})`,
-      !rlm.ok      && `❌ RLM Engine nede (${rlm.status})`,
-      failedComponents.length && `⚠️ RLM komponenter: ${failedComponents.join(', ')}`,
-      !frontend.ok && `⚠️ Frontend nede (${(frontend as any).status})`,
-      !graphOk     && '⚠️ Neo4j graph utilgængelig',
-    ].filter(Boolean),
+    issues,
   };
 }

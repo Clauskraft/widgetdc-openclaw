@@ -11,11 +11,32 @@
  * - Højere præcision (domain-scoped discovery begrænser søgerum)
  * - Konsistent token-budget via struktureret synthesis
  * - RLM context folding reducerer token-brug ved store resultater
+ *
+ * Memory Integration:
+ * - Logger succesfulde queries til AgentMemory for learning
+ * - Gemmer domain patterns for fremtidig discovery optimization
  */
 
 import { widgetdc_mcp, widgetdc_discover_domain, rag_query } from '../widgetdc-mcp/index';
 
 const FOLD_THRESHOLD_CHARS = 4000;
+
+/**
+ * Gem succesfuld RAG query til memory for learning
+ */
+async function logRagQuery(query: string, domains: string[], insightCount: number): Promise<void> {
+  if (insightCount === 0) return;
+
+  try {
+    await widgetdc_mcp('consulting.agent.memory.store', {
+      agentId: 'rag',
+      content: `RAG query: "${query.substring(0, 100)}" → ${insightCount} insights fra domæner: ${domains.join(', ')}`,
+      type: 'rag_success',
+    });
+  } catch {
+    // Non-critical
+  }
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -215,5 +236,12 @@ export async function rag_fasedelt(query: string): Promise<SynthesisResult> {
   // Kør de 3 faser sekventielt (fase 2 afhænger af fase 1)
   const phase1 = await discover(query);
   const phase2 = await dualQuery(query, phase1);
-  return await synthesize(query, phase1, phase2);
+  const result = await synthesize(query, phase1, phase2);
+
+  // Log succesfuld query til memory (async, don't wait)
+  if (result.insights.length > 0) {
+    logRagQuery(query, result.domains, result.insights.length).catch(() => {});
+  }
+
+  return result;
 }

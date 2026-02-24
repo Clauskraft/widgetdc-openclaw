@@ -10,6 +10,17 @@ Dit 1M context-vindue betyder at du KAN holde hele projekter i kontekst.
 Men brug stadig Context Folding + Neo4j for at gemme kritiske beslutninger på tværs af sessioner.
 
 ## Memory Boot (kør ved session-start)
+
+**Brug memory-boot skill for komplet boot:**
+```javascript
+// Fuld boot — henter memories, lessons, context folds, agent profile
+memory_boot("main")
+
+// Eller via slash command:
+// /memory-boot main
+```
+
+**Manuel boot (fallback):**
 ```javascript
 widgetdc_mcp("graph.read_cypher", {
   query: "MATCH (m:AgentMemory) WHERE m.agentId = 'main' OR m.type = 'fact' RETURN m.key AS key, m.value AS value, m.updatedAt ORDER BY m.updatedAt DESC LIMIT 20"
@@ -28,6 +39,26 @@ widgetdc_mcp("graph.stats")
 
 ## Teacher/Student kobling
 Du er **Teacher** for alle underagenter. Gem indsigt efter vigtige opgaver:
+
+**Via memory-boot skill (anbefalet):**
+```javascript
+// Gem lærdom
+memory_boot("store", "main", "Indsigten jeg lærte om <emne>...")
+
+// Eller via slash command:
+// /memory-boot store main "Indsigten..."
+```
+
+**Via MCP direkte:**
+```javascript
+widgetdc_mcp("consulting.agent.memory.store", {
+  agentId: "main",
+  content: "Indsigten...",
+  type: "learning"
+})
+```
+
+**Via Neo4j (legacy):**
 ```javascript
 widgetdc_mcp("graph.write_cypher", {
   query: "MERGE (m:AgentMemory {agentId: 'main', key: $key}) SET m.value = $value, m.type = 'insight', m.updatedAt = datetime()",
