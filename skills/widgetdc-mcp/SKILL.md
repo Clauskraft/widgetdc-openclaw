@@ -69,8 +69,9 @@ Use `/model <alias>` to switch context:
 | `consulting.*` | pattern.search, decision, insight | Consulting frameworks |
 | `knowledge.*` | search_claims, entities | Knowledge retrieval |
 | `kg_rag.*` | query | RAG pipeline (cached 5min) |
-| `agent.*` | task.fetch, task.claim, task.complete | Agent orchestration |
-| `git.*` | status, log, diff | Git integration |
+| `agent.task.*` | create, fetch, claim, start, complete, fail, log, status | Agent task lifecycle |
+| `supervisor.*` | status, pause, resume, hitl.request, hitl.response, hitl.pending, fold_context, rehydrate, diagnostics, boot_manifest | Multi-agent orchestration |
+| `git.*` | status, log, diff, push, pull, commit, pr_create, clone | Git integration |
 | `docgen.*` | powerpoint, word, excel, diagram | Document generation |
 | `trident.*` | threat.level, harvest, engage | Cybersecurity |
 | `osint.*` | investigate, graph, scan | Intelligence |

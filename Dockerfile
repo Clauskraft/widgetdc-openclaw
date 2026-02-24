@@ -113,7 +113,7 @@ RUN NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.co
 USER root
 
 # Cache-bust: bump to force rebuild of src + skills without invalidating Homebrew
-ARG WIDGETDC_BUILD_ID=20260224-004
+ARG WIDGETDC_BUILD_ID=20260224-005
 RUN echo "Build: ${WIDGETDC_BUILD_ID}"
 
 COPY src ./src

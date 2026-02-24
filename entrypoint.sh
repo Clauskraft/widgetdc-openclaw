@@ -98,7 +98,8 @@ if [ ! -f "${CONFIG_FILE}" ]; then
       "cicd": { "enabled": true, "env": { "GITHUB_TOKEN": "${GITHUB_TOKEN}", "GITHUB_OWNER": "Clauskraft" } },
       "act": { "enabled": true },
       "widgetdc-setup": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app", "RLM_ENGINE_URL": "https://rlm-engine-production.up.railway.app" } },
-      "writer": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app", "RLM_ENGINE_URL": "https://rlm-engine-production.up.railway.app" } }
+      "writer": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app", "RLM_ENGINE_URL": "https://rlm-engine-production.up.railway.app" } },
+      "orchestrator": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app" } }
     }
   },
   "agents": {
@@ -132,7 +133,7 @@ if [ ! -f "${CONFIG_FILE}" ]; then
       { "id": "security",     "workspace": "${STATE_DIR}/workspace-security",     "name": "Cyber-Vipera",  "skills": ["widgetdc-mcp","graph","rag"],                                             "identity": { "name": "Cyber-Vipera",  "emoji": "🐍" } },
       { "id": "analyst",      "workspace": "${STATE_DIR}/workspace-analyst",      "name": "Tal-Trold",     "skills": ["widgetdc-mcp","rag","graph","qmd"],                                       "identity": { "name": "Tal-Trold",     "emoji": "📊" } },
       { "id": "coder",        "workspace": "${STATE_DIR}/workspace-coder",        "name": "Kodehaj",       "skills": ["widgetdc-mcp","graph","cicd"],                                            "identity": { "name": "Kodehaj",       "emoji": "🦈" } },
-      { "id": "orchestrator", "workspace": "${STATE_DIR}/workspace-orchestrator", "name": "Dirigenten",    "skills": ["widgetdc-mcp","graph","health"],                                          "identity": { "name": "Dirigenten",    "emoji": "🎼" } },
+      { "id": "orchestrator", "workspace": "${STATE_DIR}/workspace-orchestrator", "name": "Dirigenten",    "skills": ["widgetdc-mcp","graph","health","orchestrator"],                                   "identity": { "name": "Dirigenten",    "emoji": "🎼" } },
       { "id": "documentalist","workspace": "${STATE_DIR}/workspace-documentalist","name": "Arkivar-Rex",   "skills": ["widgetdc-mcp","rag","qmd","graph","writer"],                              "identity": { "name": "Arkivar-Rex",   "emoji": "📚" } },
       { "id": "harvester",    "workspace": "${STATE_DIR}/workspace-harvester",    "name": "Stovsugeren",   "skills": ["widgetdc-mcp","rag","graph"],                                             "identity": { "name": "Stovsugeren",   "emoji": "🌀" } },
       { "id": "contracts",    "workspace": "${STATE_DIR}/workspace-contracts",    "name": "Kontrakt-Karen","skills": ["widgetdc-mcp","graph","rag"],                                             "identity": { "name": "Kontrakt-Karen","emoji": "📋" } }
@@ -152,7 +153,7 @@ fi
 
 # ── Skill migration — tilføj nye skills til eksisterende config ──────
 # Kører altid (ikke kun første boot) for at sikre nye skills er aktiveret.
-MIGRATE_SKILLS=("widgetdc-setup" "writer")
+MIGRATE_SKILLS=("widgetdc-setup" "writer" "orchestrator")
 for SKILL in "${MIGRATE_SKILLS[@]}"; do
   # Tjek om skill allerede er i config via grep
   if [ -f "${CONFIG_FILE}" ] && ! grep -q "\"${SKILL}\"" "${CONFIG_FILE}" 2>/dev/null; then
@@ -316,9 +317,11 @@ setup_agent_workspace "main" "Kaptajn Klo" "🦞" \
   "widgetdc-mcp,graph,health,rag,rag-fasedelt,qmd,cicd,act,widgetdc-setup,writer"
 
 setup_agent_workspace "github" "Repo Sherif" "🤠" \
-  "GitHub & CI/CD vagt for alle Clauskraft repos." \
-  "- git.status, git.log, git.diff, git.pull, git.push, git.commit, git.merge
-- agent.task.fetch (hent opgaver fra queue)" \
+  "GitHub & CI/CD vagt. Overvåger WidgeTDC, openclaw-railway-template, widgetdc-rlm-engine, widgetdc-contracts. Fuld git-adgang." \
+  "- git.status, git.log, git.diff, git.pull, git.push, git.commit, git.merge, git.pr_create, git.pr_list, git.clone
+- /cicd status, /cicd failures, /cicd logs <repo>
+- agent.task.fetch, agent.task.claim, agent.task.complete
+- graph.read_cypher (repo metadata)" \
   "widgetdc-mcp,cicd,graph"
 
 setup_agent_workspace "data" "Graf-Oktopus" "🐙" \
@@ -329,9 +332,10 @@ setup_agent_workspace "data" "Graf-Oktopus" "🐙" \
   "widgetdc-mcp,graph,rag,qmd,rag-fasedelt"
 
 setup_agent_workspace "infra" "Jernfod" "🦾" \
-  "Railway infrastruktur monitor for alle 11 services." \
-  "- integration.system_health, integration.source_ingest
-- supervisor.status, supervisor.pause, supervisor.resume
+  "Railway infrastruktur monitor. Overvåger backend, rlm-engine, openclaw, activepieces, arch-mcp, consulting-frontend. Alert ved nedetid." \
+  "- integration.system_health, integration.openclaw_health, integration.source_ingest
+- /health (fuld platform status)
+- git.status, git.log (deploy triggers)
 - agent.task.fetch, agent.task.status" \
   "widgetdc-mcp,health,graph,cicd"
 
@@ -358,20 +362,20 @@ setup_agent_workspace "analyst" "Tal-Trold" "📊" \
   "widgetdc-mcp,rag,graph,qmd"
 
 setup_agent_workspace "coder" "Kodehaj" "🦈" \
-  "Code analysis, 6K CodeSymbols og 5K CodeFiles i Neo4j." \
-  "- prometheus.lsp (language server protocol)
-- prometheus.governance (code quality)
-- prometheus.code_dreaming (generativ kode)
-- git.status, git.diff, git.commit, git.log" \
+  "Code analysis og refactoring. 6K CodeSymbols, 5K CodeFiles i Neo4j. Fuld git-adgang." \
+  "- prometheus.lsp, prometheus.governance, prometheus.code_dreaming
+- git.status, git.diff, git.commit, git.log, git.push, git.pull, git.pr_create
+- /cicd status (tjek CI før merge)
+- graph.read_cypher (CodeSymbol, CodeFile, MCPTool)" \
   "widgetdc-mcp,graph,cicd"
 
 setup_agent_workspace "orchestrator" "Dirigenten" "🎼" \
-  "Multi-agent task orchestrator via supervisor og agent.task API." \
-  "- supervisor.hitl.request, supervisor.hitl.response, supervisor.hitl.pending
-- supervisor.pause, supervisor.resume, supervisor.sendToolResult, supervisor.status
-- agent.task.create, agent.task.claim, agent.task.complete, agent.task.fail
-- agent.task.fetch, agent.task.enqueue, agent.task.log, agent.task.start, agent.task.status" \
-  "widgetdc-mcp,graph,health"
+  "Multi-agent task orchestrator. Koordinerer 12 specialistagenter via supervisor HITL og agent.task API. Brug /supervisor og /task." \
+  "- supervisor.status, supervisor.pause, supervisor.resume, supervisor.hitl.request, supervisor.hitl.response, supervisor.hitl.pending
+- supervisor.send_tool_result, supervisor.fold_context, supervisor.diagnostics, supervisor.boot_manifest
+- agent.task.create, agent.task.claim, agent.task.complete, agent.task.fail, agent.task.fetch, agent.task.log, agent.task.start, agent.task.status
+- integration.system_health, graph.read_cypher (L3Task, Lesson, AgentMemory)" \
+  "widgetdc-mcp,graph,health,orchestrator"
 
 setup_agent_workspace "documentalist" "Arkivar-Rex" "📚" \
   "Document generation og knowledge archiving: 5.589 TDCDocuments i Neo4j." \

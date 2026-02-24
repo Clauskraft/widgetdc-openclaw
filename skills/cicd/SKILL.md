@@ -19,11 +19,10 @@ Overvåger GitHub Actions workflows på tværs af alle WidgeTDC repos.
 ## Repos der overvåges
 
 - WidgeTDC (main backend)
-- widgetdc-openclaw (gateway)
+- openclaw-railway-template (OpenClaw gateway)
 - widgetdc-rlm-engine (RAG/LLM engine)
 - widgetdc-consulting-frontend (frontend)
-- widgetdc-contracts (smart contracts)
-- widgetdc-n8n (workflow automation)
+- widgetdc-contracts (TypeBox contracts)
 
 ## Krav
 

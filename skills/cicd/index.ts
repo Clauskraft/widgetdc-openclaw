@@ -13,11 +13,10 @@ const MAX_AGE_MS = 48 * 60 * 60 * 1000; // 48 hours — ignore runs older than t
 
 const REPOS = [
   'WidgeTDC',
-  'widgetdc-openclaw',
+  'openclaw-railway-template',
   'widgetdc-rlm-engine',
   'widgetdc-consulting-frontend',
   'widgetdc-contracts',
-  'widgetdc-n8n',
 ];
 
 interface WorkflowRun {
