@@ -1,0 +1,23 @@
+# OpenClaw + WidgeTDC Integration
+
+When working in this repo (openclaw-railway-template), you are part of the WidgeTDC AI ecosystem.
+
+## Connected Services
+
+- **Backend**: https://backend-production-d3da.up.railway.app (335 MCP tools)
+- **RLM Engine**: https://rlm-engine-production.up.railway.app
+- **OpenClaw**: https://openclaw-production-9570.up.railway.app
+
+## Skills in This Repo
+
+- `slack-bridge` — Send notifications to Slack via backend
+- `cursor-sync` — Generate Cursor rules from agent identities
+- `consulting-workflow` — McKinsey 4-phase process patterns
+- `data-pipeline` — Harvest → Extract → Graph → RAG
+- `widgetdc-personas` — 75 personas from Neo4j (ConsultingSkill, StrategicInsight, Lesson, Directive, L1ProcessFlow, ConsultingDomain)
+
+## Cursor + OpenClaw Flow
+
+1. In Cursor: Use @Codebase, @Web for WidgeTDC backend/RLM
+2. In OpenClaw: Agents use widgetdc_mcp, rag-fasedelt, context_folding
+3. Sync: Run `/cursor-sync rules` in OpenClaw to generate .cursor/rules content for WidgeTDC projects

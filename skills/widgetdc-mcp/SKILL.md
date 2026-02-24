@@ -39,9 +39,11 @@ widgetdc_mcp("kg_rag.query", { query: "What services does the company offer?" })
 
 ### Slash Commands
 
-- `/act <persona>` — Skift lynhurtigt til en persona (f.eks. `/act account` eller `/act linux`)
+- `/act <persona>` — Skift lynhurtigt til en persona (75 graph-personas fra Neo4j)
 - `/rag <query>` — Multi-vector RAG search (Knowledge Graph + Harvester)
-- `/rag-fasedelt <query>` — Optimeret 3-faset RAG (hurtigere for komplekse emner)
+- `/rag-fasedelt <query>` — Optimeret 3-faset RAG + RLM context folding
+- `/cursor-sync rules` — Generer Cursor rules til WidgeTDC-projekter
+- `/cursor-sync skill <agent>` — Generer Cursor skill for agent (main, data, coder, …)
 - `/graph stats` — Quick overview of Neo4j node/relation counts
 - `/health` — Full system status (Backend, RLM, Gateway)
 - `/qmd <query>` — Token-optimeret RAG (destilleret svar)
@@ -69,6 +71,7 @@ Use `/model <alias>` to switch context:
 | `consulting.*` | pattern.search, decision, insight | Consulting frameworks |
 | `knowledge.*` | search_claims, entities | Knowledge retrieval |
 | `kg_rag.*` | query | RAG pipeline (cached 5min) |
+| `context_folding.*` | triage, fold, health, triage_keywords, domain_gaps | RLM Engine context compression |
 | `agent.task.*` | create, fetch, claim, start, complete, fail, log, status | Agent task lifecycle |
 | `supervisor.*` | status, pause, resume, hitl.request, hitl.response, hitl.pending, fold_context, rehydrate, diagnostics, boot_manifest | Multi-agent orchestration |
 | `git.*` | status, log, diff, push, pull, commit, pr_create, clone | Git integration |

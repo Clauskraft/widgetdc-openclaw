@@ -38,6 +38,11 @@ This repo packages **OpenClaw** for Railway with a comprehensive **/setup** web 
 - **`OPENCLAW_GATEWAY_TOKEN`** - Stable auth token (auto-generated if not set)
 - **`OPENCLAW_VERSION`** - Pin to a specific release tag (e.g., `v2026.2.19`); omit to auto-detect latest stable
 
+### WidgeTDC Integration
+
+- **`WIDGETDC_BACKEND_URL`** - Backend API (default: https://backend-production-d3da.up.railway.app)
+- **Slack**: Konfigurer `SLACK_WEBHOOK_URL` på **Backend** (Railway) — se [docs/SLACK_SETUP.md](docs/SLACK_SETUP.md)
+
 ### Optional
 
 - **`OPENCLAW_PUBLIC_PORT=8080`** - Wrapper HTTP port (default: 8080)

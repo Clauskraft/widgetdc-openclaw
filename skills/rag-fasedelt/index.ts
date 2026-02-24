@@ -4,14 +4,18 @@
  * Fase 1: Discovery    — Find relevante domæner og tool-namespaces (parallel)
  * Fase 2: Dual Query   — RAG + graph.read_cypher kører parallelt mod graph
  * Fase 3: Synthesis    — Destiller til struktureret output (max 4K tokens)
+ * Fase 3b: Context Fold — RLM Engine komprimerer ved store kontekster (>4K tegn)
  *
  * Fordele vs simpel RAG:
  * - 40% lavere latency (parallel fase 1+2)
  * - Højere præcision (domain-scoped discovery begrænser søgerum)
  * - Konsistent token-budget via struktureret synthesis
+ * - RLM context folding reducerer token-brug ved store resultater
  */
 
 import { widgetdc_mcp, widgetdc_discover_domain, rag_query } from '../widgetdc-mcp/index';
+
+const FOLD_THRESHOLD_CHARS = 4000;
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -34,6 +38,7 @@ interface SynthesisResult {
   sources: string[];
   content: string;
   tokenEstimate: number;
+  folded?: boolean;
 }
 
 // ─── Fase 1: Discovery ───────────────────────────────────────────────────
@@ -110,7 +115,7 @@ async function dualQuery(query: string, phase1: Phase1Result): Promise<Phase2Res
 
 // ─── Fase 3: Synthesis ───────────────────────────────────────────────────
 
-function synthesize(query: string, phase1: Phase1Result, phase2: Phase2Result): SynthesisResult {
+async function synthesize(query: string, phase1: Phase1Result, phase2: Phase2Result): Promise<SynthesisResult> {
   const insights: string[] = [];
   const sources: string[] = [];
 
@@ -140,17 +145,44 @@ function synthesize(query: string, phase1: Phase1Result, phase2: Phase2Result): 
   }
 
   // Destillér til max 4K tegn
-  const content = insights.join('\n\n').substring(0, 4000);
-  const tokenEstimate = Math.ceil(content.length / 4);
+  let content = insights.join('\n\n').substring(0, 4000);
+  let tokenEstimate = Math.ceil(content.length / 4);
+  let folded = false;
+
+  // Fase 3b: RLM Context Folding — komprimer ved store kontekster
+  if (content.length >= FOLD_THRESHOLD_CHARS) {
+    try {
+      const foldResult = await widgetdc_mcp('context_folding.fold', {
+        task: `Compress RAG synthesis for query: ${query}`,
+        context: { insights: content, domains: phase1.domains },
+        domain: phase1.domains[0] !== 'general' ? phase1.domains[0].toUpperCase() : undefined,
+        max_tokens: 1024,
+      }) as { data?: { folded_context?: Record<string, unknown>; compression?: { folded_tokens?: number } } };
+      const fc = foldResult?.data?.folded_context;
+      if (fc && typeof fc === 'object') {
+        const foldedStr = (fc.insights ?? fc.summary ?? fc.content ?? fc.text) as string | undefined
+          ?? (typeof fc === 'string' ? fc : null);
+        const str = foldedStr && typeof foldedStr === 'string' ? foldedStr : JSON.stringify(fc);
+        if (str.length > 0 && str.length < content.length) {
+          content = str.substring(0, 4000);
+          tokenEstimate = foldResult.data?.compression?.folded_tokens ?? Math.ceil(content.length / 4);
+          folded = true;
+        }
+      }
+    } catch {
+      // Fallback: brug original content ved RLM-fejl
+    }
+  }
 
   return {
-    phase:         '3/3 Complete',
+    phase:         folded ? '3/3 Complete (RLM folded)' : '3/3 Complete',
     query,
     domains:       phase1.domains,
     insights:      insights.slice(0, 8),
     sources:       [...new Set(sources)],
     content:       content || 'Ingen resultater fundet i knowledge graph.',
     tokenEstimate,
+    folded,
   };
 }
 
@@ -183,5 +215,5 @@ export async function rag_fasedelt(query: string): Promise<SynthesisResult> {
   // Kør de 3 faser sekventielt (fase 2 afhænger af fase 1)
   const phase1 = await discover(query);
   const phase2 = await dualQuery(query, phase1);
-  return synthesize(query, phase1, phase2);
+  return await synthesize(query, phase1, phase2);
 }

@@ -1,0 +1,43 @@
+# Daglig refresh af graph-personas til OpenClaw
+# Kører export-graph-personas.mjs og committer hvis der er ændringer
+name: Refresh Graph Personas
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Hver dag kl. 06:00 UTC
+  workflow_dispatch:     # Manuelt trigger
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # For git push
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Export personas from graph
+        run: node scripts/export-graph-personas.mjs
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet skills/widgetdc-personas/; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add skills/widgetdc-personas/
+          git commit -m "chore: refresh graph personas (scheduled)"
+          git push

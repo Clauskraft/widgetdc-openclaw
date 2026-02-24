@@ -97,9 +97,14 @@ if [ ! -f "${CONFIG_FILE}" ]; then
       "qmd": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app" } },
       "cicd": { "enabled": true, "env": { "GITHUB_TOKEN": "${GITHUB_TOKEN}", "GITHUB_OWNER": "Clauskraft" } },
       "act": { "enabled": true },
+      "widgetdc-personas": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app" } },
       "widgetdc-setup": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app", "RLM_ENGINE_URL": "https://rlm-engine-production.up.railway.app" } },
       "writer": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app", "RLM_ENGINE_URL": "https://rlm-engine-production.up.railway.app" } },
-      "orchestrator": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app" } }
+      "orchestrator": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app" } },
+      "slack-bridge": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app" } },
+      "cursor-sync": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app" } },
+      "consulting-workflow": { "enabled": true },
+      "data-pipeline": { "enabled": true }
     }
   },
   "agents": {
@@ -125,17 +130,17 @@ if [ ! -f "${CONFIG_FILE}" ]; then
       }
     },
     "list": [
-      { "id": "main",         "default": true, "workspace": "${STATE_DIR}/workspace-main",         "name": "Kaptajn Klo",    "skills": ["widgetdc-mcp","graph","health","rag","rag-fasedelt","qmd","cicd","act","widgetdc-setup","writer"],  "identity": { "name": "Kaptajn Klo",    "emoji": "🦞" } },
+      { "id": "main",         "default": true, "workspace": "${STATE_DIR}/workspace-main",         "name": "Kaptajn Klo",    "skills": ["widgetdc-mcp","graph","health","rag","rag-fasedelt","qmd","cicd","act","widgetdc-personas","widgetdc-setup","writer","slack-bridge","cursor-sync","consulting-workflow"],  "identity": { "name": "Kaptajn Klo",    "emoji": "🦞" } },
       { "id": "github",       "workspace": "${STATE_DIR}/workspace-github",       "name": "Repo Sherif",    "skills": ["widgetdc-mcp","cicd","graph"],                                            "identity": { "name": "Repo Sherif",    "emoji": "🤠" } },
-      { "id": "data",         "workspace": "${STATE_DIR}/workspace-data",         "name": "Graf-Oktopus",   "skills": ["widgetdc-mcp","graph","rag","qmd","rag-fasedelt"],                        "identity": { "name": "Graf-Oktopus",   "emoji": "🐙" } },
+      { "id": "data",         "workspace": "${STATE_DIR}/workspace-data",         "name": "Graf-Oktopus",   "skills": ["widgetdc-mcp","graph","rag","qmd","rag-fasedelt","data-pipeline"],                        "identity": { "name": "Graf-Oktopus",   "emoji": "🐙" } },
       { "id": "infra",        "workspace": "${STATE_DIR}/workspace-infra",        "name": "Jernfod",        "skills": ["widgetdc-mcp","health","graph","cicd"],                                   "identity": { "name": "Jernfod",        "emoji": "🦾" } },
-      { "id": "strategist",   "workspace": "${STATE_DIR}/workspace-strategist",   "name": "Stor-Bjoern",   "skills": ["widgetdc-mcp","rag","rag-fasedelt","graph","qmd"],                        "identity": { "name": "Stor-Bjoern",   "emoji": "🐻" } },
+      { "id": "strategist",   "workspace": "${STATE_DIR}/workspace-strategist",   "name": "Stor-Bjoern",   "skills": ["widgetdc-mcp","rag","rag-fasedelt","graph","qmd","widgetdc-personas","consulting-workflow"],                        "identity": { "name": "Stor-Bjoern",   "emoji": "🐻" } },
       { "id": "security",     "workspace": "${STATE_DIR}/workspace-security",     "name": "Cyber-Vipera",  "skills": ["widgetdc-mcp","graph","rag"],                                             "identity": { "name": "Cyber-Vipera",  "emoji": "🐍" } },
       { "id": "analyst",      "workspace": "${STATE_DIR}/workspace-analyst",      "name": "Tal-Trold",     "skills": ["widgetdc-mcp","rag","graph","qmd"],                                       "identity": { "name": "Tal-Trold",     "emoji": "📊" } },
-      { "id": "coder",        "workspace": "${STATE_DIR}/workspace-coder",        "name": "Kodehaj",       "skills": ["widgetdc-mcp","graph","cicd"],                                            "identity": { "name": "Kodehaj",       "emoji": "🦈" } },
-      { "id": "orchestrator", "workspace": "${STATE_DIR}/workspace-orchestrator", "name": "Dirigenten",    "skills": ["widgetdc-mcp","graph","health","orchestrator"],                                   "identity": { "name": "Dirigenten",    "emoji": "🎼" } },
-      { "id": "documentalist","workspace": "${STATE_DIR}/workspace-documentalist","name": "Arkivar-Rex",   "skills": ["widgetdc-mcp","rag","qmd","graph","writer"],                              "identity": { "name": "Arkivar-Rex",   "emoji": "📚" } },
-      { "id": "harvester",    "workspace": "${STATE_DIR}/workspace-harvester",    "name": "Stovsugeren",   "skills": ["widgetdc-mcp","rag","graph"],                                             "identity": { "name": "Stovsugeren",   "emoji": "🌀" } },
+      { "id": "coder",        "workspace": "${STATE_DIR}/workspace-coder",        "name": "Kodehaj",       "skills": ["widgetdc-mcp","graph","cicd","cursor-sync"],                                            "identity": { "name": "Kodehaj",       "emoji": "🦈" } },
+      { "id": "orchestrator", "workspace": "${STATE_DIR}/workspace-orchestrator", "name": "Dirigenten",    "skills": ["widgetdc-mcp","graph","health","orchestrator","slack-bridge"],                                   "identity": { "name": "Dirigenten",    "emoji": "🎼" } },
+      { "id": "documentalist","workspace": "${STATE_DIR}/workspace-documentalist","name": "Arkivar-Rex",   "skills": ["widgetdc-mcp","rag","qmd","graph","writer","consulting-workflow"],                              "identity": { "name": "Arkivar-Rex",   "emoji": "📚" } },
+      { "id": "harvester",    "workspace": "${STATE_DIR}/workspace-harvester",    "name": "Stovsugeren",   "skills": ["widgetdc-mcp","rag","graph","data-pipeline"],                                             "identity": { "name": "Stovsugeren",   "emoji": "🌀" } },
       { "id": "contracts",    "workspace": "${STATE_DIR}/workspace-contracts",    "name": "Kontrakt-Karen","skills": ["widgetdc-mcp","graph","rag"],                                             "identity": { "name": "Kontrakt-Karen","emoji": "📋" } }
     ]
   },
@@ -153,7 +158,7 @@ fi
 
 # ── Skill migration — tilføj nye skills til eksisterende config ──────
 # Kører altid (ikke kun første boot) for at sikre nye skills er aktiveret.
-MIGRATE_SKILLS=("widgetdc-setup" "writer" "orchestrator")
+MIGRATE_SKILLS=("widgetdc-setup" "writer" "orchestrator" "widgetdc-personas" "slack-bridge" "cursor-sync" "consulting-workflow" "data-pipeline")
 for SKILL in "${MIGRATE_SKILLS[@]}"; do
   # Tjek om skill allerede er i config via grep
   if [ -f "${CONFIG_FILE}" ] && ! grep -q "\"${SKILL}\"" "${CONFIG_FILE}" 2>/dev/null; then
@@ -314,7 +319,7 @@ setup_agent_workspace "main" "Kaptajn Klo" "🦞" \
   "- kg_rag.query, consulting.pattern.search/insight/decision, knowledge.search_claims
 - graph.read_cypher/stats/health, agent.task.*, supervisor.*
 - docgen.*, financial.*, osint.*, cve.*, trident.*" \
-  "widgetdc-mcp,graph,health,rag,rag-fasedelt,qmd,cicd,act,widgetdc-setup,writer"
+  "widgetdc-mcp,graph,health,rag,rag-fasedelt,qmd,cicd,act,widgetdc-personas,widgetdc-setup,writer,slack-bridge,cursor-sync,consulting-workflow"
 
 setup_agent_workspace "github" "Repo Sherif" "🤠" \
   "GitHub & CI/CD vagt. Overvåger WidgeTDC, openclaw-railway-template, widgetdc-rlm-engine, widgetdc-contracts. Fuld git-adgang." \
@@ -329,7 +334,7 @@ setup_agent_workspace "data" "Graf-Oktopus" "🐙" \
   "- graph.read_cypher, graph.write_cypher, graph.stats, graph.health, graph.create_node
 - knowledge.search_claims, knowledge.entities
 - ingestion.*, vidensarkiv.*" \
-  "widgetdc-mcp,graph,rag,qmd,rag-fasedelt"
+  "widgetdc-mcp,graph,rag,qmd,rag-fasedelt,data-pipeline"
 
 setup_agent_workspace "infra" "Jernfod" "🦾" \
   "Railway infrastruktur monitor. Overvåger backend, rlm-engine, openclaw, activepieces, arch-mcp, consulting-frontend. Alert ved nedetid." \
@@ -344,7 +349,7 @@ setup_agent_workspace "strategist" "Stor-Bjoern" "🐻" \
   "- kg_rag.query (cached 5min), consulting.pattern.search, consulting.insight, consulting.decision
 - knowledge.search_claims, knowledge.entities
 - graph.read_cypher (StrategicInsight, Directive, L3Task)" \
-  "widgetdc-mcp,rag,rag-fasedelt,graph,qmd"
+  "widgetdc-mcp,rag,rag-fasedelt,graph,qmd,widgetdc-personas,consulting-workflow"
 
 setup_agent_workspace "security" "Cyber-Vipera" "🐍" \
   "CVE & Threat Intelligence: 6.561 CVEs, 1.994 CyberIntelligence noder." \
@@ -367,7 +372,7 @@ setup_agent_workspace "coder" "Kodehaj" "🦈" \
 - git.status, git.diff, git.commit, git.log, git.push, git.pull, git.pr_create
 - /cicd status (tjek CI før merge)
 - graph.read_cypher (CodeSymbol, CodeFile, MCPTool)" \
-  "widgetdc-mcp,graph,cicd"
+  "widgetdc-mcp,graph,cicd,cursor-sync"
 
 setup_agent_workspace "orchestrator" "Dirigenten" "🎼" \
   "Multi-agent task orchestrator. Koordinerer 12 specialistagenter via supervisor HITL og agent.task API. Brug /supervisor og /task." \
@@ -375,21 +380,21 @@ setup_agent_workspace "orchestrator" "Dirigenten" "🎼" \
 - supervisor.send_tool_result, supervisor.fold_context, supervisor.diagnostics, supervisor.boot_manifest
 - agent.task.create, agent.task.claim, agent.task.complete, agent.task.fail, agent.task.fetch, agent.task.log, agent.task.start, agent.task.status
 - integration.system_health, graph.read_cypher (L3Task, Lesson, AgentMemory)" \
-  "widgetdc-mcp,graph,health,orchestrator"
+  "widgetdc-mcp,graph,health,orchestrator,slack-bridge"
 
 setup_agent_workspace "documentalist" "Arkivar-Rex" "📚" \
   "Document generation og knowledge archiving: 5.589 TDCDocuments i Neo4j." \
   "- docgen.powerpoint, docgen.word, docgen.excel, docgen.diagram
 - notes.create, notes.update, notes.delete, notes.get, notes.list
 - vidensarkiv.* (knowledge archiving)" \
-  "widgetdc-mcp,rag,qmd,graph,writer"
+  "widgetdc-mcp,rag,qmd,graph,writer,consulting-workflow"
 
 setup_agent_workspace "harvester" "Stovsugeren" "🌀" \
   "Data ingestion specialist og RAG pipeline vedligehold." \
   "- integration.source_ingest, integration.system_health
 - notes.create (dokumentér fund)
 - graph.read_cypher (tjek data freshness)" \
-  "widgetdc-mcp,rag,graph"
+  "widgetdc-mcp,rag,graph,data-pipeline"
 
 setup_agent_workspace "contracts" "Kontrakt-Karen" "📋" \
   "@widgetdc/contracts v0.2.0 ekspert. TypeBox cross-service kontrakter." \
