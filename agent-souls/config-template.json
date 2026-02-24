@@ -1,11 +1,12 @@
 {
   "_comment": "WidgeTDC OpenClaw konfiguration — paste i Config Editor under /setup",
   "_version": "2026.2.24",
+  "_model_note": "Gemini 2.5 Flash via GOOGLE_API_KEY. Model ID: gemini-2.5-flash (eller gemini-2.5-flash-preview-04-17 for specifik preview)",
   "agents": {
     "defaults": {
       "model": {
-        "name": "claude-sonnet-4-5",
-        "provider": "anthropic"
+        "name": "gemini-2.5-flash",
+        "provider": "google"
       },
       "contextTokens": 800000,
       "timeoutSeconds": 180,
@@ -20,9 +21,9 @@
         "id": "kaptajn-klo",
         "name": "Kaptajn Klo 🦞",
         "description": "Hoved-konsulent & orkestrator for WidgeTDC AI platformen. Adgang til 335 MCP tools og Neo4j knowledge graph.",
-        "model": { "name": "claude-sonnet-4-5", "provider": "anthropic" },
+        "model": { "name": "gemini-2.5-flash", "provider": "google" },
         "systemPromptFile": "/data/workspace/agent-souls/main.md",
-        "contextTokens": 800000,
+        "contextTokens": 1000000,
         "timeoutSeconds": 300,
         "elevated": true
       },
@@ -30,7 +31,7 @@
         "id": "skribleren",
         "name": "Skribleren ✍️",
         "description": "Langt-format skriveagent. Memos til hele bøger via Neo4j Context Folding.",
-        "model": { "name": "claude-opus-4-6", "provider": "anthropic" },
+        "model": { "name": "gemini-2.5-flash", "provider": "google" },
         "systemPromptFile": "/data/workspace/agent-souls/writer.md",
         "contextTokens": 800000,
         "timeoutSeconds": 600
