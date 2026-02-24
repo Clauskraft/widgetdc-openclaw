@@ -1,20 +1,63 @@
 /**
- * Slack Bridge Skill — Send notifications via WidgeTDC Backend
+ * Slack Bridge Skill — Full Agent Communication Hub
  *
- * Uses POST /api/notifications/send on backend.
- * Requires SLACK_WEBHOOK_URL configured on Railway (backend).
- *
- * Use cases:
- * - Alert team when OpenClaw agent completes critical task
- * - Share RAG synthesis summaries to Slack channel
- * - Notify on health degradation
- * - Hourly agent status updates to #agent-status
+ * Features:
+ * - Send notifications via WidgeTDC Backend
+ * - Individual agent channels (#agent-{id})
+ * - @mention routing to specific agents
  * - Kanban board management
+ * - Hourly agent status updates
+ * - Agent-to-agent messaging
+ *
+ * Agent Channels:
+ * - #agent-status — Platform-wide status & alerts
+ * - #agent-main — Kaptajn Klo (main agent)
+ * - #agent-orchestrator — Dirigenten (orchestrator)
+ * - #agent-analyst — Analytikeren
+ * - #agent-writer — Skribleren
+ * - #agent-researcher — Forskeren
+ * - #agent-developer — Udvikleren
+ * - #agent-security — Sikkerhedsvagten
+ * - #agent-devops — DevOps Ninja
+ * - #agent-qa — QA Mesteren
+ * - #agent-ux — UX Designeren
+ * - #agent-data — Data Scientist
+ * - #agent-pm — Projekt Manager
  */
 
 import { widgetdc_mcp } from '../widgetdc-mcp/index';
 
 const BACKEND = process.env.WIDGETDC_BACKEND_URL || 'https://backend-production-d3da.up.railway.app';
+
+// ─── Agent Registry ───────────────────────────────────────────────────────
+
+export const AGENTS = [
+  { id: 'main', name: 'Kaptajn Klo', emoji: '🦀', channel: '#agent-main' },
+  { id: 'orchestrator', name: 'Dirigenten', emoji: '🎭', channel: '#agent-orchestrator' },
+  { id: 'analyst', name: 'Analytikeren', emoji: '📊', channel: '#agent-analyst' },
+  { id: 'writer', name: 'Skribleren', emoji: '✍️', channel: '#agent-writer' },
+  { id: 'researcher', name: 'Forskeren', emoji: '🔬', channel: '#agent-researcher' },
+  { id: 'developer', name: 'Udvikleren', emoji: '💻', channel: '#agent-developer' },
+  { id: 'security', name: 'Sikkerhedsvagten', emoji: '🛡️', channel: '#agent-security' },
+  { id: 'devops', name: 'DevOps Ninja', emoji: '🚀', channel: '#agent-devops' },
+  { id: 'qa', name: 'QA Mesteren', emoji: '🧪', channel: '#agent-qa' },
+  { id: 'ux', name: 'UX Designeren', emoji: '🎨', channel: '#agent-ux' },
+  { id: 'data', name: 'Data Scientist', emoji: '📈', channel: '#agent-data' },
+  { id: 'pm', name: 'Projekt Manager', emoji: '📋', channel: '#agent-pm' },
+] as const;
+
+export type AgentId = typeof AGENTS[number]['id'];
+
+export function getAgent(id: string) {
+  return AGENTS.find(a => a.id === id);
+}
+
+export function getAgentChannel(id: string): string {
+  const agent = getAgent(id);
+  return agent?.channel ?? `#agent-${id}`;
+}
+
+// ─── Types ────────────────────────────────────────────────────────────────
 
 export type SlackLevel = 'info' | 'warning' | 'critical' | 'success';
 
@@ -27,7 +70,15 @@ export interface SlackPayload {
   channel?: string;
 }
 
-// Kanban board state (in-memory, synced to Neo4j)
+export interface AgentMessage {
+  from: AgentId | string;
+  to: AgentId | string;
+  message: string;
+  priority?: 'low' | 'normal' | 'high' | 'urgent';
+  replyTo?: string;
+  threadId?: string;
+}
+
 interface KanbanTask {
   id: string;
   title: string;
@@ -37,6 +88,8 @@ interface KanbanTask {
   createdAt: string;
   updatedAt: string;
 }
+
+// ─── Core Notification ────────────────────────────────────────────────────
 
 /**
  * Send notification to Slack via WidgeTDC backend.
@@ -55,6 +108,7 @@ export async function notify(payload: SlackPayload): Promise<{ sent: boolean; er
         message: payload.message,
         source: payload.source || 'OpenClaw',
         fields: payload.fields,
+        channel: payload.channel,
       }),
       signal: AbortSignal.timeout(10_000),
     });
@@ -71,8 +125,145 @@ export async function notify(payload: SlackPayload): Promise<{ sent: boolean; er
 }
 
 /**
- * Quick helpers for common notification types.
+ * Send to agent-specific channel
  */
+export async function notifyAgent(
+  agentId: AgentId | string,
+  title: string,
+  message: string,
+  level: SlackLevel = 'info'
+): Promise<{ sent: boolean; error?: string }> {
+  const agent = getAgent(agentId);
+  const channel = agent?.channel ?? `#agent-${agentId}`;
+  const emoji = agent?.emoji ?? '🤖';
+
+  return notify({
+    level,
+    title: `${emoji} ${title}`,
+    message,
+    source: agent?.name ?? agentId,
+    channel,
+  });
+}
+
+/**
+ * Send message from one agent to another
+ */
+export async function sendAgentMessage(msg: AgentMessage): Promise<{ sent: boolean; messageId?: string; error?: string }> {
+  const fromAgent = getAgent(msg.from);
+  const toAgent = getAgent(msg.to);
+  const toChannel = toAgent?.channel ?? `#agent-${msg.to}`;
+
+  const priorityEmoji = msg.priority === 'urgent' ? '🔴' : msg.priority === 'high' ? '🟠' : '⚪';
+  const fromName = fromAgent?.name ?? msg.from;
+  const fromEmoji = fromAgent?.emoji ?? '🤖';
+
+  // Log message to Neo4j
+  const messageId = `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+  try {
+    await widgetdc_mcp('graph.write_cypher', {
+      query: `
+        CREATE (m:AgentMessage {
+          id: $messageId,
+          fromAgent: $from,
+          toAgent: $to,
+          message: $message,
+          priority: $priority,
+          replyTo: $replyTo,
+          threadId: $threadId,
+          timestamp: datetime()
+        })
+      `,
+      params: {
+        messageId,
+        from: msg.from,
+        to: msg.to,
+        message: msg.message,
+        priority: msg.priority ?? 'normal',
+        replyTo: msg.replyTo ?? null,
+        threadId: msg.threadId ?? null,
+      },
+    });
+  } catch (e) {
+    console.warn(`[slack-bridge] Failed to log message: ${e}`);
+  }
+
+  // Send to Slack
+  const result = await notify({
+    level: msg.priority === 'urgent' ? 'critical' : msg.priority === 'high' ? 'warning' : 'info',
+    title: `${priorityEmoji} Message from ${fromEmoji} ${fromName}`,
+    message: msg.message,
+    source: fromName,
+    channel: toChannel,
+    fields: msg.replyTo ? { 'Reply to': msg.replyTo } : undefined,
+  });
+
+  return { ...result, messageId };
+}
+
+/**
+ * Broadcast message to all agents
+ */
+export async function broadcastToAgents(
+  from: AgentId | string,
+  message: string,
+  priority: 'low' | 'normal' | 'high' | 'urgent' = 'normal'
+): Promise<{ sent: number; failed: number }> {
+  let sent = 0;
+  let failed = 0;
+
+  for (const agent of AGENTS) {
+    if (agent.id === from) continue;
+
+    const result = await sendAgentMessage({
+      from,
+      to: agent.id,
+      message,
+      priority,
+    });
+
+    if (result.sent) sent++;
+    else failed++;
+  }
+
+  return { sent, failed };
+}
+
+/**
+ * Parse @mentions from message and route to agents
+ */
+export async function routeMentions(
+  from: AgentId | string,
+  message: string
+): Promise<{ routed: string[]; notFound: string[] }> {
+  const mentionRegex = /@(\w+)/g;
+  const mentions = [...message.matchAll(mentionRegex)].map(m => m[1].toLowerCase());
+
+  const routed: string[] = [];
+  const notFound: string[] = [];
+
+  for (const mention of mentions) {
+    const agent = AGENTS.find(a => a.id === mention || a.name.toLowerCase().includes(mention));
+
+    if (agent) {
+      await sendAgentMessage({
+        from,
+        to: agent.id,
+        message: message.replace(/@\w+/g, '').trim(),
+        priority: 'normal',
+      });
+      routed.push(agent.id);
+    } else {
+      notFound.push(mention);
+    }
+  }
+
+  return { routed, notFound };
+}
+
+// ─── Quick Helpers ────────────────────────────────────────────────────────
+
 export async function alertCritical(title: string, message: string, fields?: Record<string, string>) {
   return notify({ level: 'critical', title, message, source: 'OpenClaw-Alert', fields });
 }
@@ -118,11 +309,20 @@ export async function postAgentStatus(status: {
   });
 }
 
+/**
+ * List all agent channels
+ */
+export function listAgentChannels(): { id: string; name: string; emoji: string; channel: string }[] {
+  return AGENTS.map(a => ({
+    id: a.id,
+    name: a.name,
+    emoji: a.emoji,
+    channel: a.channel,
+  }));
+}
+
 // ─── Kanban Board ─────────────────────────────────────────────────────────
 
-/**
- * Create a new Kanban task
- */
 export async function kanbanCreate(task: {
   title: string;
   assignee?: string;
@@ -141,7 +341,6 @@ export async function kanbanCreate(task: {
     updatedAt: now,
   };
 
-  // Save to Neo4j
   await widgetdc_mcp('graph.write_cypher', {
     query: `
       CREATE (t:KanbanTask {
@@ -157,7 +356,14 @@ export async function kanbanCreate(task: {
     params: newTask,
   });
 
-  // Notify Slack
+  // Notify assignee if specified
+  if (task.assignee) {
+    const agent = getAgent(task.assignee);
+    if (agent) {
+      await notifyAgent(agent.id, 'New Task Assigned', `*${task.title}*\nPriority: ${task.priority ?? 'medium'}`, 'info');
+    }
+  }
+
   await notify({
     level: 'info',
     title: '📋 New Task Created',
@@ -169,9 +375,6 @@ export async function kanbanCreate(task: {
   return newTask;
 }
 
-/**
- * Move a Kanban task to a new status
- */
 export async function kanbanMove(
   taskId: string,
   newStatus: KanbanTask['status']
@@ -192,7 +395,6 @@ export async function kanbanMove(
       return { success: false, error: 'Task not found' };
     }
 
-    // Notify on important status changes
     if (newStatus === 'done') {
       await notify({
         level: 'success',
@@ -209,9 +411,6 @@ export async function kanbanMove(
   }
 }
 
-/**
- * Get Kanban board state
- */
 export async function kanbanBoard(): Promise<{
   backlog: KanbanTask[];
   todo: KanbanTask[];
@@ -240,15 +439,12 @@ export async function kanbanBoard(): Promise<{
   };
 }
 
-/**
- * Post Kanban board to Slack
- */
 export async function kanbanPost(): Promise<{ sent: boolean; error?: string }> {
   const board = await kanbanBoard();
 
   const formatColumn = (name: string, tasks: KanbanTask[]) => {
     if (tasks.length === 0) return `*${name}:* (empty)`;
-    return `*${name}:*\n${tasks.map(t => 
+    return `*${name}:*\n${tasks.map(t =>
       `• ${t.priority === 'critical' ? '🔴' : t.priority === 'high' ? '🟠' : '⚪'} ${t.title}${t.assignee ? ` (@${t.assignee})` : ''}`
     ).join('\n')}`;
   };
@@ -270,6 +466,60 @@ export async function kanbanPost(): Promise<{ sent: boolean; error?: string }> {
   });
 }
 
+// ─── Message History ──────────────────────────────────────────────────────
+
+export async function getAgentMessages(
+  agentId: AgentId | string,
+  limit = 20
+): Promise<AgentMessage[]> {
+  const result = await widgetdc_mcp('graph.read_cypher', {
+    query: `
+      MATCH (m:AgentMessage)
+      WHERE m.toAgent = $agentId OR m.fromAgent = $agentId
+      RETURN m.id AS id, m.fromAgent AS from, m.toAgent AS to,
+             m.message AS message, m.priority AS priority,
+             m.replyTo AS replyTo, m.threadId AS threadId,
+             m.timestamp AS timestamp
+      ORDER BY m.timestamp DESC
+      LIMIT $limit
+    `,
+    params: { agentId, limit },
+  }) as { results?: AgentMessage[] };
+
+  return result?.results ?? [];
+}
+
+export async function getUnreadMessages(agentId: AgentId | string): Promise<AgentMessage[]> {
+  const result = await widgetdc_mcp('graph.read_cypher', {
+    query: `
+      MATCH (m:AgentMessage {toAgent: $agentId})
+      WHERE NOT exists(m.readAt)
+      RETURN m.id AS id, m.fromAgent AS from, m.toAgent AS to,
+             m.message AS message, m.priority AS priority,
+             m.replyTo AS replyTo, m.threadId AS threadId
+      ORDER BY m.priority DESC, m.timestamp ASC
+    `,
+    params: { agentId },
+  }) as { results?: AgentMessage[] };
+
+  return result?.results ?? [];
+}
+
+export async function markMessageRead(messageId: string): Promise<boolean> {
+  try {
+    await widgetdc_mcp('graph.write_cypher', {
+      query: `
+        MATCH (m:AgentMessage {id: $messageId})
+        SET m.readAt = datetime()
+      `,
+      params: { messageId },
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // ─── Skill Router ─────────────────────────────────────────────────────────
 
 export async function slack_bridge(action = 'help', ...args: string[]): Promise<unknown> {
@@ -286,6 +536,42 @@ export async function slack_bridge(action = 'help', ...args: string[]): Promise<
       }
       return alertCritical(args[0], args.slice(1).join(' '));
 
+    case 'agents':
+    case 'channels':
+      return {
+        agents: listAgentChannels(),
+        statusChannel: '#agent-status',
+      };
+
+    case 'message':
+    case 'msg':
+      if (!args[0] || !args[1]) {
+        return { error: 'Brug: /slack message <to-agent> <message>' };
+      }
+      return sendAgentMessage({
+        from: 'main',
+        to: args[0],
+        message: args.slice(1).join(' '),
+      });
+
+    case 'broadcast':
+      if (!args[0]) {
+        return { error: 'Brug: /slack broadcast <message>' };
+      }
+      return broadcastToAgents('main', args.join(' '));
+
+    case 'route':
+      if (!args[0]) {
+        return { error: 'Brug: /slack route <message with @mentions>' };
+      }
+      return routeMentions('main', args.join(' '));
+
+    case 'inbox':
+      return getUnreadMessages(args[0] || 'main');
+
+    case 'history':
+      return getAgentMessages(args[0] || 'main', parseInt(args[1]) || 20);
+
     case 'kanban':
     case 'board':
       return kanbanBoard();
@@ -300,26 +586,39 @@ export async function slack_bridge(action = 'help', ...args: string[]): Promise<
       return kanbanCreate({
         title: args[0],
         assignee: args[1],
-        priority: args[2] as any,
+        priority: args[2] as 'low' | 'medium' | 'high' | 'critical' | undefined,
       });
 
     case 'task-move':
       if (!args[0] || !args[1]) {
         return { error: 'Brug: /slack task-move <taskId> <status>' };
       }
-      return kanbanMove(args[0], args[1] as any);
+      return kanbanMove(args[0], args[1] as KanbanTask['status']);
 
     default:
       return {
-        help: 'Slack Bridge — Notifications & Kanban 📢',
-        commands: {
-          '/slack notify <title> <message>': 'Send notification',
-          '/slack alert <title> <message>': 'Send critical alert',
-          '/slack board': 'Vis Kanban board',
-          '/slack kanban-post': 'Post Kanban til Slack',
-          '/slack task-create <title> [assignee] [priority]': 'Opret task',
-          '/slack task-move <taskId> <status>': 'Flyt task (backlog/todo/in_progress/review/done)',
+        help: 'Slack Bridge — Agent Communication Hub 📢',
+        sections: {
+          'Notifications': {
+            '/slack notify <title> <message>': 'Send notification',
+            '/slack alert <title> <message>': 'Send critical alert',
+          },
+          'Agent Messaging': {
+            '/slack agents': 'List all agent channels',
+            '/slack message <agent> <message>': 'Send message to agent',
+            '/slack broadcast <message>': 'Send to all agents',
+            '/slack route <message with @mentions>': 'Route @mentions to agents',
+            '/slack inbox [agent]': 'Get unread messages',
+            '/slack history [agent] [limit]': 'Get message history',
+          },
+          'Kanban Board': {
+            '/slack board': 'Vis Kanban board',
+            '/slack kanban-post': 'Post Kanban til Slack',
+            '/slack task-create <title> [assignee] [priority]': 'Opret task',
+            '/slack task-move <taskId> <status>': 'Flyt task',
+          },
         },
+        agentChannels: AGENTS.map(a => `${a.emoji} ${a.channel} — ${a.name}`),
       };
   }
 }
