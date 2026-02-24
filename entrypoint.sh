@@ -120,7 +120,7 @@ if [ ! -f "${CONFIG_FILE}" ]; then
       },
       "maxConcurrent": 5,
       "contextTokens": 800000,
-      "heartbeat": { "every": "0m", "target": "none" }
+      "heartbeat": { "every": "0m", "target": "none" },
       "timeoutSeconds": 180,
       "contextPruning": {
         "mode": "cache-ttl",
@@ -163,6 +163,28 @@ if [ ! -f "${CONFIG_FILE}" ]; then
 SEEDEOF
   chown -R openclaw:openclaw "${STATE_DIR}" 2>/dev/null || true
   echo "[entrypoint] Full WidgeTDC config seeded"
+fi
+
+# ── Device auth migration — slå device identity fra (fix "device identity required") ──────
+if [ -f "${CONFIG_FILE}" ] && command -v node >/dev/null 2>&1; then
+  export CONFIG_FILE RAILWAY_PUBLIC_DOMAIN
+  node -e "
+    const fs = require('fs');
+    const path = process.env.CONFIG_FILE;
+    let cfg;
+    try { cfg = JSON.parse(fs.readFileSync(path, 'utf8')); } catch (e) { process.exit(0); }
+    const cu = cfg.gateway?.controlUi || {};
+    if (cu.dangerouslyDisableDeviceAuth === true) process.exit(0);
+    cfg.gateway = cfg.gateway || {};
+    cfg.gateway.controlUi = { ...cu, allowInsecureAuth: true, dangerouslyDisableDeviceAuth: true };
+    const domain = process.env.RAILWAY_PUBLIC_DOMAIN || 'openclaw-production-9570.up.railway.app';
+    const origin = 'https://' + domain;
+    const origins = cfg.gateway.controlUi.allowedOrigins || [];
+    if (!origins.includes(origin)) origins.push(origin);
+    cfg.gateway.controlUi.allowedOrigins = origins;
+    fs.writeFileSync(path, JSON.stringify(cfg, null, 2));
+    console.log('[entrypoint] Set dangerouslyDisableDeviceAuth=true (fix device identity required)');
+  " 2>/dev/null || true
 fi
 
 # ── Heartbeat migration — tilføj heartbeat til main+infra hvis mangler ──────
