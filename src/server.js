@@ -994,6 +994,7 @@ const ALLOWED_CONSOLE_COMMANDS = new Set([
   "openclaw.doctor",
   "openclaw.logs.tail",
   "openclaw.config.get",
+  "openclaw.config.set",
   "openclaw.devices.list",
   "openclaw.devices.approve",
   "openclaw.plugins.list",
@@ -1061,6 +1062,21 @@ app.post("/setup/api/console/run", requireSetupAuth, async (req, res) => {
         });
       }
       result = await runCmd(OPENCLAW_NODE, clawArgs(["config", "get", cfgPath]));
+    } else if (command === "openclaw.config.set") {
+      // arg format: "<path> <value>" — e.g. "skills.entries.writer {\"enabled\":true}"
+      const parts = arg?.trim().split(/\s+(.+)/s);
+      const cfgPath = parts?.[0];
+      const cfgValue = parts?.[1];
+      if (!cfgPath || !cfgValue) {
+        return res.status(400).json({
+          ok: false,
+          error: "Usage: arg='<config.path> <value or JSON>'",
+        });
+      }
+      // Use --json flag for JSON values (objects/arrays), plain string otherwise
+      const isJson = cfgValue.startsWith("{") || cfgValue.startsWith("[") || cfgValue === "true" || cfgValue === "false";
+      const extraFlags = isJson ? ["--json"] : [];
+      result = await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", ...extraFlags, cfgPath, cfgValue]));
     } else if (command === "openclaw.devices.list") {
       result = await runCmd(OPENCLAW_NODE, clawArgs(["devices", "list"]));
     } else if (command === "openclaw.devices.approve") {
