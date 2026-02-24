@@ -1,0 +1,103 @@
+{
+  "_comment": "WidgeTDC OpenClaw konfiguration — paste i Config Editor under /setup",
+  "_version": "2026.2.24",
+  "agents": {
+    "defaults": {
+      "model": {
+        "name": "claude-sonnet-4-5",
+        "provider": "anthropic"
+      },
+      "contextTokens": 800000,
+      "timeoutSeconds": 180,
+      "maxConcurrent": 5,
+      "workspaceDir": "/data/workspace",
+      "skipBootstrap": false,
+      "bootstrapMaxChars": 20000,
+      "bootstrapTotalMaxChars": 150000
+    },
+    "list": [
+      {
+        "id": "kaptajn-klo",
+        "name": "Kaptajn Klo 🦞",
+        "description": "Hoved-konsulent & orkestrator for WidgeTDC AI platformen. Adgang til 335 MCP tools og Neo4j knowledge graph.",
+        "model": { "name": "claude-sonnet-4-5", "provider": "anthropic" },
+        "systemPromptFile": "/data/workspace/agent-souls/main.md",
+        "contextTokens": 800000,
+        "timeoutSeconds": 300,
+        "elevated": true
+      },
+      {
+        "id": "skribleren",
+        "name": "Skribleren ✍️",
+        "description": "Langt-format skriveagent. Memos til hele bøger via Neo4j Context Folding.",
+        "model": { "name": "claude-opus-4-6", "provider": "anthropic" },
+        "systemPromptFile": "/data/workspace/agent-souls/writer.md",
+        "contextTokens": 800000,
+        "timeoutSeconds": 600
+      }
+    ]
+  },
+  "skills": {
+    "paths": ["/data/workspace/skills"],
+    "autoload": true,
+    "enabled": [
+      "health",
+      "graph",
+      "rag",
+      "rag-fasedelt",
+      "qmd",
+      "cicd",
+      "act",
+      "widgetdc-mcp",
+      "widgetdc-setup",
+      "writer"
+    ]
+  },
+  "hooks": {
+    "onMessage": [
+      {
+        "id": "auto-graph-lookup",
+        "description": "Lookup graph context for consulting queries",
+        "trigger": "message.contains(['strategi', 'analyse', 'rapport', 'DD', 'due diligence'])",
+        "skill": "graph",
+        "action": "stats"
+      }
+    ],
+    "onError": [
+      {
+        "id": "auto-health-check",
+        "description": "Run health check when errors occur",
+        "skill": "health",
+        "action": "quick"
+      }
+    ]
+  },
+  "cron": [
+    {
+      "id": "daily-health",
+      "schedule": "0 8 * * *",
+      "description": "Daglig health check kl. 08:00",
+      "skill": "health",
+      "notify": true
+    },
+    {
+      "id": "cicd-watch",
+      "schedule": "0 */4 * * *",
+      "description": "CI/CD status check hvert 4. time",
+      "skill": "cicd",
+      "action": "failures",
+      "notify": true
+    }
+  ],
+  "memory": {
+    "enabled": true,
+    "backend": "neo4j",
+    "searchEnabled": true
+  },
+  "gateway": {
+    "controlUi": {
+      "allowInsecureAuth": true
+    },
+    "trustedProxies": ["127.0.0.1"]
+  }
+}
