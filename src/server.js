@@ -314,6 +314,90 @@ const setupRateLimiter = {
   },
 };
 
+// ========== SESSION TRACKING FOR AUTO-BOOT & AUTO-PERSIST ==========
+const sessionCache = new Map();
+const SESSION_IDLE_TIMEOUT_MS = 300_000; // 5 minutes
+const SESSION_PERSIST_INTERVAL_MS = 60_000; // 1 minute
+
+// Auto-persist idle sessions
+const sessionPersistInterval = setInterval(async () => {
+  const now = Date.now();
+  for (const [sessionId, data] of sessionCache) {
+    // Persist sessions idle for more than 5 minutes
+    if (data.lastActivity && now - data.lastActivity > SESSION_IDLE_TIMEOUT_MS) {
+      try {
+        console.log(`[session] Auto-persisting idle session: ${sessionId}`);
+        await runCmd(OPENCLAW_NODE, clawArgs([
+          "skill", "run", "orchestrator", "persist", sessionId,
+          JSON.stringify({ lastActivity: data.lastActivity, agentId: data.agentId || "main" })
+        ]));
+        data.persisted = true;
+        data.persistedAt = now;
+      } catch (err) {
+        console.warn(`[session] Auto-persist failed for ${sessionId}: ${err.message}`);
+      }
+    }
+    // Cleanup very old sessions (>1 hour)
+    if (now - (data.createdAt || now) > 3600_000) {
+      sessionCache.delete(sessionId);
+    }
+  }
+}, SESSION_PERSIST_INTERVAL_MS);
+
+// Hourly status report
+const hourlyReportInterval = setInterval(async () => {
+  if (!isConfigured() || !isGatewayReady()) return;
+  
+  try {
+    console.log("[hourly] Running hourly status report...");
+    const result = await runCmd(OPENCLAW_NODE, clawArgs([
+      "skill", "run", "health", "hourly"
+    ]));
+    console.log(`[hourly] Report complete: exit=${result.code}`);
+  } catch (err) {
+    console.warn(`[hourly] Report failed: ${err.message}`);
+  }
+}, 3600_000); // Every hour
+
+/**
+ * Auto memory-boot middleware — boots agent memory on first request in session
+ */
+async function autoMemoryBoot(req, res, next) {
+  const sessionId = req.headers["x-session-id"] || req.query.sessionId;
+  const agentId = req.headers["x-agent-id"] || req.query.agentId || "main";
+
+  if (sessionId && !sessionCache.has(sessionId)) {
+    // First request in session — run memory boot
+    const sessionData = {
+      createdAt: Date.now(),
+      lastActivity: Date.now(),
+      agentId,
+      booted: false,
+    };
+    sessionCache.set(sessionId, sessionData);
+
+    // Run memory boot async (don't block request)
+    (async () => {
+      try {
+        console.log(`[auto-boot] Booting memory for session ${sessionId}, agent ${agentId}`);
+        await runCmd(OPENCLAW_NODE, clawArgs([
+          "skill", "run", "memory-boot", agentId
+        ]));
+        sessionData.booted = true;
+        sessionData.bootedAt = Date.now();
+        console.log(`[auto-boot] Memory boot complete for ${sessionId}`);
+      } catch (err) {
+        console.warn(`[auto-boot] Memory boot failed for ${sessionId}: ${err.message}`);
+      }
+    })();
+  } else if (sessionId && sessionCache.has(sessionId)) {
+    // Update last activity
+    sessionCache.get(sessionId).lastActivity = Date.now();
+  }
+
+  return next();
+}
+
 function requireSetupAuth(req, res, next) {
   if (!SETUP_PASSWORD) {
     return res
@@ -386,6 +470,9 @@ try {
 const app = express();
 app.disable("x-powered-by");
 app.use(express.json({ limit: "1mb" }));
+
+// Auto memory-boot middleware (runs before all routes)
+app.use(autoMemoryBoot);
 
 // Minimal health endpoint for Railway.
 app.get("/setup/healthz", (_req, res) => res.json({ ok: true }));
@@ -1439,6 +1526,23 @@ async function gracefulShutdown(signal) {
 
   if (setupRateLimiter.cleanupInterval) {
     clearInterval(setupRateLimiter.cleanupInterval);
+  }
+  if (sessionPersistInterval) {
+    clearInterval(sessionPersistInterval);
+  }
+  if (hourlyReportInterval) {
+    clearInterval(hourlyReportInterval);
+  }
+
+  // Persist all active sessions before shutdown
+  console.log(`[wrapper] Persisting ${sessionCache.size} active sessions...`);
+  for (const [sessionId, data] of sessionCache) {
+    try {
+      await runCmd(OPENCLAW_NODE, clawArgs([
+        "skill", "run", "orchestrator", "persist", sessionId,
+        JSON.stringify({ shutdown: true, agentId: data.agentId || "main" })
+      ]));
+    } catch {}
   }
 
   if (activeTuiSession) {

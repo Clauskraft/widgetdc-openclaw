@@ -307,6 +307,133 @@ export async function memoryStore(
   }
 }
 
+// ─── Memory Cleanup ───────────────────────────────────────────────────────
+
+/**
+ * Cleanup gamle memories (TTL-baseret garbage collection)
+ */
+export async function memoryCleanup(
+  agentId: string,
+  options: { maxAgeDays?: number; keepTypes?: string[] } = {}
+): Promise<unknown> {
+  const maxAge = options.maxAgeDays ?? 30;
+  const keepTypes = options.keepTypes ?? ['fact', 'critical', 'lesson'];
+
+  try {
+    const result = await widgetdc_mcp('graph.write_cypher', {
+      query: `
+        MATCH (m:AgentMemory {agentId: $agentId})
+        WHERE m.updatedAt < datetime() - duration({days: $maxAge})
+        AND NOT m.type IN $keepTypes
+        WITH m, m.key AS deletedKey
+        DELETE m
+        RETURN count(*) AS deleted, collect(deletedKey)[0..5] AS sampleKeys
+      `,
+      params: { agentId, maxAge, keepTypes },
+    }) as { results?: { deleted: number; sampleKeys: string[] }[] };
+
+    const data = result?.results?.[0] ?? { deleted: 0, sampleKeys: [] };
+
+    // Log cleanup event
+    await widgetdc_mcp('consulting.agent.memory.store', {
+      agentId: 'system',
+      content: `Memory cleanup for ${agentId}: deleted ${data.deleted} old memories (>${maxAge} days)`,
+      type: 'maintenance',
+    }).catch(() => {});
+
+    return {
+      success: true,
+      agentId,
+      deleted: data.deleted,
+      maxAgeDays: maxAge,
+      preservedTypes: keepTypes,
+      sampleDeletedKeys: data.sampleKeys,
+    };
+  } catch (e) {
+    return { success: false, error: String(e) };
+  }
+}
+
+/**
+ * Cleanup alle agenter
+ */
+export async function cleanupAllAgents(maxAgeDays = 30): Promise<unknown> {
+  const agents = [
+    'main', 'github', 'data', 'infra', 'strategist', 'security',
+    'analyst', 'coder', 'orchestrator', 'documentalist', 'harvester', 'contracts',
+    'rag', 'health', 'system',
+  ];
+
+  const results = await Promise.all(
+    agents.map(agentId => memoryCleanup(agentId, { maxAgeDays }))
+  );
+
+  const totalDeleted = results.reduce((sum, r: any) => sum + (r.deleted ?? 0), 0);
+
+  return {
+    success: true,
+    agentsProcessed: agents.length,
+    totalDeleted,
+    results,
+  };
+}
+
+// ─── Lesson Distribution ──────────────────────────────────────────────────
+
+/**
+ * Distribuer en lesson til alle agenter (cross-agent learning)
+ */
+export async function distributeLesson(
+  lesson: { title: string; content: string; source?: string; domain?: string }
+): Promise<unknown> {
+  const agents = [
+    'main', 'github', 'data', 'infra', 'strategist', 'security',
+    'analyst', 'coder', 'orchestrator', 'documentalist', 'harvester', 'contracts',
+  ];
+
+  // Gem lesson til Neo4j
+  await widgetdc_mcp('graph.write_cypher', {
+    query: `
+      CREATE (l:Lesson {
+        id: $id,
+        title: $title,
+        content: $content,
+        source: $source,
+        domain: $domain,
+        createdAt: datetime(),
+        distributed: true
+      })
+    `,
+    params: {
+      id: `lesson_${Date.now()}`,
+      title: lesson.title,
+      content: lesson.content,
+      source: lesson.source ?? 'system',
+      domain: lesson.domain ?? 'general',
+    },
+  });
+
+  // Distribuer til alle agenter
+  const results = await Promise.all(
+    agents.map(agentId =>
+      widgetdc_mcp('consulting.agent.memory.store', {
+        agentId,
+        content: `[Lesson: ${lesson.title}] ${lesson.content}`,
+        type: 'shared_lesson',
+      }).catch(() => ({ error: true, agentId }))
+    )
+  );
+
+  const successful = results.filter((r: any) => !r.error).length;
+
+  return {
+    success: true,
+    lesson: lesson.title,
+    distributedTo: successful,
+    totalAgents: agents.length,
+  };
+}
+
 // ─── Router ───────────────────────────────────────────────────────────────
 
 /**
@@ -332,6 +459,19 @@ export async function memory_boot(action = 'boot', ...args: string[]): Promise<u
       }
       return memoryStore(args[0] || 'main', args.slice(1).join(' '));
 
+    case 'cleanup':
+      if (args[0] === 'all') {
+        return cleanupAllAgents(parseInt(args[1]) || 30);
+      }
+      return memoryCleanup(args[0] || 'main', { maxAgeDays: parseInt(args[1]) || 30 });
+
+    case 'distribute':
+    case 'lesson':
+      if (!args[0] || !args[1]) {
+        return { error: 'Brug: /memory-boot distribute <title> <content>' };
+      }
+      return distributeLesson({ title: args[0], content: args.slice(1).join(' ') });
+
     default:
       // Hvis action ligner et agentId, boot den agent
       if (action && !['help', '?', '--help'].includes(action)) {
@@ -346,6 +486,9 @@ export async function memory_boot(action = 'boot', ...args: string[]): Promise<u
           '/memory-boot quick [agentId]': 'Hurtig boot (færre items)',
           '/memory-boot status [agentId]': 'Vis memory stats',
           '/memory-boot store <agentId> <content>': 'Gem ny lærdom',
+          '/memory-boot cleanup [agentId] [days]': 'Cleanup gamle memories (default 30 dage)',
+          '/memory-boot cleanup all [days]': 'Cleanup alle agenter',
+          '/memory-boot distribute <title> <content>': 'Distribuer lesson til alle agenter',
         },
         agents: [
           'main', 'github', 'data', 'infra', 'strategist', 'security',

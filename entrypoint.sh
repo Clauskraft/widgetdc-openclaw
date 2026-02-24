@@ -102,6 +102,7 @@ if [ ! -f "${CONFIG_FILE}" ]; then
       "writer": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app", "RLM_ENGINE_URL": "https://rlm-engine-production.up.railway.app" } },
       "orchestrator": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app", "RLM_ENGINE_URL": "https://rlm-engine-production.up.railway.app" } },
       "memory-boot": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app" } },
+      "rlm-events": { "enabled": true, "env": { "RLM_ENGINE_URL": "https://rlm-engine-production.up.railway.app", "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app" } },
       "slack-bridge": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app" } },
       "cursor-sync": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app" } },
       "consulting-workflow": { "enabled": true },
@@ -131,7 +132,7 @@ if [ ! -f "${CONFIG_FILE}" ]; then
       }
     },
     "list": [
-      { "id": "main",         "default": true, "workspace": "${STATE_DIR}/workspace-main",         "name": "Kaptajn Klo",    "skills": ["widgetdc-mcp","graph","health","rag","rag-fasedelt","qmd","cicd","act","widgetdc-personas","widgetdc-setup","writer","slack-bridge","cursor-sync","consulting-workflow"],  "identity": { "name": "Kaptajn Klo",    "emoji": "🦞" },  "heartbeat": { "every": "1h", "target": "last" } },
+      { "id": "main",         "default": true, "workspace": "${STATE_DIR}/workspace-main",         "name": "Kaptajn Klo",    "skills": ["widgetdc-mcp","graph","health","rag","rag-fasedelt","qmd","cicd","act","widgetdc-personas","widgetdc-setup","writer","slack-bridge","cursor-sync","consulting-workflow","memory-boot","rlm-events","orchestrator"],  "identity": { "name": "Kaptajn Klo",    "emoji": "🦞" },  "heartbeat": { "every": "1h", "target": "last" } },
       { "id": "infra",        "workspace": "${STATE_DIR}/workspace-infra",        "name": "Jernfod",        "skills": ["widgetdc-mcp","health","graph","cicd"],                                   "identity": { "name": "Jernfod",        "emoji": "🦾" },  "heartbeat": { "every": "1h", "target": "last" } },
       { "id": "github",       "workspace": "${STATE_DIR}/workspace-github",       "name": "Repo Sherif",    "skills": ["widgetdc-mcp","cicd","graph"],                                            "identity": { "name": "Repo Sherif",    "emoji": "🤠" } },
       { "id": "data",         "workspace": "${STATE_DIR}/workspace-data",         "name": "Graf-Oktopus",   "skills": ["widgetdc-mcp","graph","rag","qmd","rag-fasedelt","data-pipeline"],                        "identity": { "name": "Graf-Oktopus",   "emoji": "🐙" } },
@@ -139,7 +140,7 @@ if [ ! -f "${CONFIG_FILE}" ]; then
       { "id": "security",     "workspace": "${STATE_DIR}/workspace-security",     "name": "Cyber-Vipera",  "skills": ["widgetdc-mcp","graph","rag"],                                             "identity": { "name": "Cyber-Vipera",  "emoji": "🐍" } },
       { "id": "analyst",      "workspace": "${STATE_DIR}/workspace-analyst",      "name": "Tal-Trold",     "skills": ["widgetdc-mcp","rag","graph","qmd"],                                       "identity": { "name": "Tal-Trold",     "emoji": "📊" } },
       { "id": "coder",        "workspace": "${STATE_DIR}/workspace-coder",        "name": "Kodehaj",       "skills": ["widgetdc-mcp","graph","cicd","cursor-sync"],                                            "identity": { "name": "Kodehaj",       "emoji": "🦈" } },
-      { "id": "orchestrator", "workspace": "${STATE_DIR}/workspace-orchestrator", "name": "Dirigenten",    "skills": ["widgetdc-mcp","graph","health","orchestrator","slack-bridge"],                                   "identity": { "name": "Dirigenten",    "emoji": "🎼" } },
+      { "id": "orchestrator", "workspace": "${STATE_DIR}/workspace-orchestrator", "name": "Dirigenten",    "skills": ["widgetdc-mcp","graph","health","orchestrator","slack-bridge","memory-boot","rlm-events"],                                   "identity": { "name": "Dirigenten",    "emoji": "🎼" },  "heartbeat": { "every": "1h", "target": "last" } },
       { "id": "documentalist","workspace": "${STATE_DIR}/workspace-documentalist","name": "Arkivar-Rex",   "skills": ["widgetdc-mcp","rag","qmd","graph","writer","consulting-workflow"],                              "identity": { "name": "Arkivar-Rex",   "emoji": "📚" } },
       { "id": "harvester",    "workspace": "${STATE_DIR}/workspace-harvester",    "name": "Stovsugeren",   "skills": ["widgetdc-mcp","rag","graph","data-pipeline"],                                             "identity": { "name": "Stovsugeren",   "emoji": "🌀" } },
       { "id": "contracts",    "workspace": "${STATE_DIR}/workspace-contracts",    "name": "Kontrakt-Karen","skills": ["widgetdc-mcp","graph","rag"],                                             "identity": { "name": "Kontrakt-Karen","emoji": "📋" } }

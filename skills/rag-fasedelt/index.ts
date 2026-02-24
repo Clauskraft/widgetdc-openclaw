@@ -44,6 +44,8 @@ interface Phase1Result {
   domains: string[];
   ragAvailable: boolean;
   graphAvailable: boolean;
+  keywords: string[];
+  gaps: string[];
 }
 
 interface Phase2Result {
@@ -55,47 +57,86 @@ interface SynthesisResult {
   phase: string;
   query: string;
   domains: string[];
+  keywords: string[];
   insights: string[];
   sources: string[];
   content: string;
   tokenEstimate: number;
   folded?: boolean;
+  gaps?: string[];
 }
 
 // ─── Fase 1: Discovery ───────────────────────────────────────────────────
 
-async function discover(query: string): Promise<Phase1Result> {
-  const [ragTools, graphTools] = await Promise.allSettled([
-    widgetdc_discover_domain('kg_rag'),
-    widgetdc_discover_domain('graph'),
+/**
+ * Intelligent keyword extraction via RLM context_folding.triage_keywords
+ */
+async function extractKeywords(query: string): Promise<string[]> {
+  try {
+    const result = await widgetdc_mcp('context_folding.triage_keywords', {
+      content: query,
+      max_keywords: 5,
+    }) as { keywords?: string[]; data?: { keywords?: string[] } };
+
+    return result?.keywords ?? result?.data?.keywords ?? [];
+  } catch {
+    // Fallback til simpel word extraction
+    return query.toLowerCase().split(/\s+/).filter(w => w.length > 3).slice(0, 5);
+  }
+}
+
+/**
+ * Analyze knowledge gaps via RLM context_folding.domain_gaps
+ */
+async function analyzeGaps(query: string, retrievedContent: string[]): Promise<string[]> {
+  if (retrievedContent.length === 0) return [];
+
+  try {
+    const result = await widgetdc_mcp('context_folding.domain_gaps', {
+      query,
+      retrieved_content: retrievedContent.join('\n'),
+    }) as { gaps?: string[]; data?: { gaps?: string[] } };
+
+    return result?.gaps ?? result?.data?.gaps ?? [];
+  } catch {
+    return [];
+  }
+}
+
+async function discover(query: string): Promise<Phase1Result & { keywords: string[]; gaps: string[] }> {
+  // Kør tool discovery og keyword extraction parallelt
+  const [ragTools, graphTools, keywords] = await Promise.all([
+    widgetdc_discover_domain('kg_rag').catch(() => []),
+    widgetdc_discover_domain('graph').catch(() => []),
+    extractKeywords(query),
   ]);
 
-  const ragAvailable = ragTools.status === 'fulfilled' &&
-    Array.isArray(ragTools.value) && ragTools.value.length > 0;
+  const ragAvailable = Array.isArray(ragTools) && ragTools.length > 0;
+  const graphAvailable = Array.isArray(graphTools) && graphTools.length > 0;
 
-  const graphAvailable = graphTools.status === 'fulfilled' &&
-    Array.isArray(graphTools.value) && graphTools.value.length > 0;
-
-  // Udled relevante domæner fra query (simpel keyword mapping)
+  // Udled relevante domæner fra keywords (forbedret med RLM keywords)
   const domainMap: Record<string, string[]> = {
-    strategy:    ['strategy', 'strategi', 'market', 'competitive', 'porter'],
-    finance:     ['financial', 'finans', 'revenue', 'cost', 'budget', 'valuation'],
-    technology:  ['tech', 'digital', 'AI', 'cloud', 'software', 'cyber'],
-    operations:  ['ops', 'process', 'lean', 'supply', 'logistics'],
-    people:      ['people', 'hr', 'talent', 'organization', 'kultur'],
-    esg:         ['esg', 'sustainability', 'climate', 'carbon', 'csrd'],
-    legal:       ['legal', 'compliance', 'gdpr', 'nis2', 'regulation'],
+    strategy:    ['strategy', 'strategi', 'market', 'competitive', 'porter', 'growth', 'expansion'],
+    finance:     ['financial', 'finans', 'revenue', 'cost', 'budget', 'valuation', 'investment', 'roi'],
+    technology:  ['tech', 'digital', 'AI', 'cloud', 'software', 'cyber', 'data', 'automation'],
+    operations:  ['ops', 'process', 'lean', 'supply', 'logistics', 'efficiency', 'workflow'],
+    people:      ['people', 'hr', 'talent', 'organization', 'kultur', 'leadership', 'team'],
+    esg:         ['esg', 'sustainability', 'climate', 'carbon', 'csrd', 'green', 'environmental'],
+    legal:       ['legal', 'compliance', 'gdpr', 'nis2', 'regulation', 'risk', 'audit'],
   };
 
-  const lowerQuery = query.toLowerCase();
+  // Kombiner query og RLM keywords for bedre domain matching
+  const allKeywords = [...query.toLowerCase().split(/\s+/), ...keywords.map(k => k.toLowerCase())];
   const domains = Object.entries(domainMap)
-    .filter(([, keywords]) => keywords.some(k => lowerQuery.includes(k)))
+    .filter(([, domainKeywords]) => domainKeywords.some(k => allKeywords.some(qk => qk.includes(k))))
     .map(([domain]) => domain);
 
   return {
     domains: domains.length > 0 ? domains : ['general'],
     ragAvailable,
     graphAvailable,
+    keywords,
+    gaps: [], // Fyldes efter phase 2
   };
 }
 
@@ -195,15 +236,20 @@ async function synthesize(query: string, phase1: Phase1Result, phase2: Phase2Res
     }
   }
 
+  // Analyze knowledge gaps (async, parallel med return)
+  const gaps = await analyzeGaps(query, insights);
+
   return {
     phase:         folded ? '3/3 Complete (RLM folded)' : '3/3 Complete',
     query,
     domains:       phase1.domains,
+    keywords:      phase1.keywords,
     insights:      insights.slice(0, 8),
     sources:       [...new Set(sources)],
     content:       content || 'Ingen resultater fundet i knowledge graph.',
     tokenEstimate,
     folded,
+    gaps:          gaps.length > 0 ? gaps : undefined,
   };
 }
 
