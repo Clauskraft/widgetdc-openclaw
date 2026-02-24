@@ -1302,16 +1302,18 @@ proxy.on("proxyReqWs", (proxyReq, req, socket, options, head) => {
   proxyReq.setHeader("Origin", `http://localhost:${INTERNAL_GATEWAY_PORT}`);
 });
 
-// Auto-inject token into /openclaw browser GET requests so the Control UI works
+// Auto-inject token into /openclaw and /chat browser GET requests so the Control UI works
 // without the user needing to know the gateway token.
 app.use((req, res, next) => {
-  if (
+  const isControlUi =
     req.method === "GET" &&
-    (req.path === "/openclaw" || req.path.startsWith("/openclaw/")) &&
+    (req.path === "/openclaw" ||
+      req.path.startsWith("/openclaw/") ||
+      req.path === "/chat") &&
     !req.query.token &&
     !req.headers.authorization &&
-    !req.headers.upgrade // not a WebSocket upgrade
-  ) {
+    !req.headers.upgrade; // not a WebSocket upgrade
+  if (isControlUi) {
     const sep = req.url.includes("?") ? "&" : "?";
     return res.redirect(307, `${req.url}${sep}token=${encodeURIComponent(OPENCLAW_GATEWAY_TOKEN)}`);
   }
@@ -1341,8 +1343,11 @@ app.use(async (req, res) => {
     }
   }
 
-  if (req.path === "/openclaw" && !req.query.token) {
-    return res.redirect(`/openclaw?token=${OPENCLAW_GATEWAY_TOKEN}`);
+  if ((req.path === "/openclaw" || req.path === "/chat") && !req.query.token) {
+    const path = req.path;
+    const qs = req.url.includes("?") ? req.url.slice(req.url.indexOf("?") + 1) : "";
+    const sep = qs ? "&" : "";
+    return res.redirect(`${path}?token=${encodeURIComponent(OPENCLAW_GATEWAY_TOKEN)}${sep}${qs}`);
   }
 
   return proxy.web(req, res, { target: GATEWAY_TARGET });
