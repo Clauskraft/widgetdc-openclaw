@@ -2,7 +2,7 @@
  * Orchestrator Skill for OpenClaw — Dirigenten 🎼
  *
  * Multi-agent task orchestration: supervisor HITL, agent.task lifecycle,
- * proactive context folding, and session management.
+ * proactive context folding, session management, and multi-agent chaining.
  *
  * Features:
  * - Supervisor control (pause/resume/status)
@@ -10,9 +10,29 @@
  * - Proactive context folding for long conversations
  * - Session rehydration on resume
  * - Memory persistence across sessions
+ * - Multi-Agent Chain execution (sequential agent delegation)
  */
 
 import { widgetdc_mcp } from '../widgetdc-mcp/index';
+
+// ─── Agent Registry ───────────────────────────────────────────────────────
+
+const AGENTS = {
+  main: { name: 'Kaptajn Klo', emoji: '🦀', skills: ['all'] },
+  orchestrator: { name: 'Dirigenten', emoji: '🎭', skills: ['orchestrator', 'supervisor'] },
+  developer: { name: 'Udvikleren', emoji: '💻', skills: ['code', 'git'] },
+  writer: { name: 'Skribleren', emoji: '✍️', skills: ['writer', 'docgen'] },
+  analyst: { name: 'Analytikeren', emoji: '📊', skills: ['financial', 'rag'] },
+  researcher: { name: 'Forskeren', emoji: '🔬', skills: ['osint', 'rag'] },
+  security: { name: 'Sikkerhedsvagten', emoji: '🛡️', skills: ['trident', 'cve'] },
+  data: { name: 'Data Scientist', emoji: '📈', skills: ['graph', 'rag'] },
+  devops: { name: 'DevOps Ninja', emoji: '🚀', skills: ['cicd', 'railway'] },
+  qa: { name: 'QA Mesteren', emoji: '🧪', skills: ['testing'] },
+  ux: { name: 'UX Designeren', emoji: '🎨', skills: ['design'] },
+  pm: { name: 'Projekt Manager', emoji: '📋', skills: ['planning'] },
+} as const;
+
+type AgentId = keyof typeof AGENTS;
 
 // ─── Constants ────────────────────────────────────────────────────────────
 
@@ -306,6 +326,380 @@ export async function task(action: string, taskId?: string, payload?: string) {
       return {
         help: 'Kommandoer: create <type> <payload>, fetch [agentId], claim <taskId>, complete <taskId> <result>, fail <taskId> <reason>, status <taskId>',
         tools: ['agent.task.create', 'agent.task.fetch', 'agent.task.claim', 'agent.task.start', 'agent.task.complete', 'agent.task.fail', 'agent.task.log', 'agent.task.status'],
+      };
+  }
+}
+
+// ─── Multi-Agent Chain ────────────────────────────────────────────────────
+
+interface ChainStep {
+  agentId: AgentId | string;
+  task: string;
+  dependsOn?: string;
+  timeout?: number;
+}
+
+interface ChainConfig {
+  id: string;
+  name: string;
+  steps: ChainStep[];
+  onError?: 'stop' | 'continue' | 'retry';
+  maxRetries?: number;
+}
+
+interface ChainResult {
+  chainId: string;
+  status: 'completed' | 'failed' | 'partial';
+  startedAt: string;
+  completedAt: string;
+  steps: {
+    agentId: string;
+    task: string;
+    status: 'completed' | 'failed' | 'skipped';
+    result?: unknown;
+    error?: string;
+    durationMs: number;
+  }[];
+  finalResult?: unknown;
+}
+
+/**
+ * Execute a multi-agent chain — sequential agent delegation with dependencies
+ */
+export async function executeChain(config: ChainConfig): Promise<ChainResult> {
+  const chainId = config.id || `chain_${Date.now()}`;
+  const startedAt = new Date().toISOString();
+  const results: Record<string, unknown> = {};
+  const stepResults: ChainResult['steps'] = [];
+
+  // Log chain start to Neo4j
+  await widgetdc_mcp('graph.write_cypher', {
+    query: `
+      CREATE (c:AgentChain {
+        id: $chainId,
+        name: $name,
+        status: 'running',
+        stepCount: $stepCount,
+        startedAt: datetime()
+      })
+    `,
+    params: { chainId, name: config.name, stepCount: config.steps.length },
+  }).catch(() => {});
+
+  let chainStatus: ChainResult['status'] = 'completed';
+
+  for (const step of config.steps) {
+    const stepStart = Date.now();
+    const agent = AGENTS[step.agentId as AgentId];
+    const agentName = agent?.name ?? step.agentId;
+
+    // Check dependencies
+    if (step.dependsOn && !results[step.dependsOn]) {
+      stepResults.push({
+        agentId: step.agentId,
+        task: step.task,
+        status: 'skipped',
+        error: `Dependency ${step.dependsOn} not completed`,
+        durationMs: 0,
+      });
+      
+      if (config.onError === 'stop') {
+        chainStatus = 'failed';
+        break;
+      }
+      continue;
+    }
+
+    // Build context from dependencies
+    const context = step.dependsOn ? results[step.dependsOn] : undefined;
+
+    try {
+      // Create task for agent
+      const taskResult = await widgetdc_mcp('agent.task.create', {
+        agentId: step.agentId,
+        title: step.task,
+        type: 'chain_step',
+        context: {
+          chainId,
+          chainName: config.name,
+          previousResult: context,
+        },
+      }) as { taskId?: string };
+
+      // Execute via agent (simplified — in production would wait for completion)
+      const result = await executeAgentTask(step.agentId, step.task, context, step.timeout);
+
+      results[step.agentId] = result;
+      stepResults.push({
+        agentId: step.agentId,
+        task: step.task,
+        status: 'completed',
+        result,
+        durationMs: Date.now() - stepStart,
+      });
+
+      // Log step completion
+      await widgetdc_mcp('consulting.agent.memory.store', {
+        agentId: step.agentId,
+        content: `[Chain: ${config.name}] Completed step: ${step.task}`,
+        type: 'chain_step',
+      }).catch(() => {});
+
+    } catch (e) {
+      const error = e instanceof Error ? e.message : String(e);
+      
+      stepResults.push({
+        agentId: step.agentId,
+        task: step.task,
+        status: 'failed',
+        error,
+        durationMs: Date.now() - stepStart,
+      });
+
+      if (config.onError === 'stop') {
+        chainStatus = 'failed';
+        break;
+      } else if (config.onError === 'retry' && config.maxRetries) {
+        // Retry logic (simplified)
+        chainStatus = 'partial';
+      } else {
+        chainStatus = 'partial';
+      }
+    }
+  }
+
+  const completedAt = new Date().toISOString();
+
+  // Update chain status in Neo4j
+  await widgetdc_mcp('graph.write_cypher', {
+    query: `
+      MATCH (c:AgentChain {id: $chainId})
+      SET c.status = $status,
+          c.completedAt = datetime(),
+          c.stepsCompleted = $completed,
+          c.stepsFailed = $failed
+    `,
+    params: {
+      chainId,
+      status: chainStatus,
+      completed: stepResults.filter(s => s.status === 'completed').length,
+      failed: stepResults.filter(s => s.status === 'failed').length,
+    },
+  }).catch(() => {});
+
+  // Get final result from last successful step
+  const lastSuccess = stepResults.filter(s => s.status === 'completed').pop();
+
+  return {
+    chainId,
+    status: chainStatus,
+    startedAt,
+    completedAt,
+    steps: stepResults,
+    finalResult: lastSuccess?.result,
+  };
+}
+
+/**
+ * Execute a single agent task (simplified execution)
+ */
+async function executeAgentTask(
+  agentId: string,
+  task: string,
+  context?: unknown,
+  timeout = 60000
+): Promise<unknown> {
+  // In a full implementation, this would:
+  // 1. Create a task via agent.task.create
+  // 2. Wait for the agent to claim and complete it
+  // 3. Return the result
+  
+  // For now, we simulate by calling relevant MCP tools based on agent type
+  const agent = AGENTS[agentId as AgentId];
+  
+  if (!agent) {
+    throw new Error(`Unknown agent: ${agentId}`);
+  }
+
+  // Route to appropriate tool based on agent skills
+  if (agent.skills.includes('rag') || agent.skills.includes('all')) {
+    const result = await widgetdc_mcp('kg_rag.query', {
+      query: task,
+      context: context ? JSON.stringify(context) : undefined,
+    });
+    return result;
+  }
+
+  if (agent.skills.includes('graph')) {
+    // Data agent — query graph
+    return { agentId, task, status: 'executed', context };
+  }
+
+  // Default: return task acknowledgment
+  return {
+    agentId,
+    task,
+    status: 'acknowledged',
+    context,
+    note: 'Task queued for agent execution',
+  };
+}
+
+/**
+ * Create a predefined chain for common workflows
+ */
+export function createChain(
+  type: 'due_diligence' | 'research' | 'code_review' | 'report',
+  params: { target?: string; query?: string }
+): ChainConfig {
+  switch (type) {
+    case 'due_diligence':
+      return {
+        id: `dd_${Date.now()}`,
+        name: `Due Diligence: ${params.target ?? 'Unknown'}`,
+        steps: [
+          { agentId: 'researcher', task: `Research company: ${params.target}` },
+          { agentId: 'security', task: 'Analyze security posture and CVE exposure', dependsOn: 'researcher' },
+          { agentId: 'analyst', task: 'Financial analysis and peer comparison', dependsOn: 'researcher' },
+          { agentId: 'writer', task: 'Compile DD report with findings', dependsOn: 'analyst' },
+        ],
+        onError: 'continue',
+      };
+
+    case 'research':
+      return {
+        id: `research_${Date.now()}`,
+        name: `Research: ${params.query ?? 'Unknown'}`,
+        steps: [
+          { agentId: 'researcher', task: `Deep research: ${params.query}` },
+          { agentId: 'analyst', task: 'Analyze and synthesize findings', dependsOn: 'researcher' },
+          { agentId: 'writer', task: 'Write research summary', dependsOn: 'analyst' },
+        ],
+        onError: 'stop',
+      };
+
+    case 'code_review':
+      return {
+        id: `review_${Date.now()}`,
+        name: `Code Review: ${params.target ?? 'PR'}`,
+        steps: [
+          { agentId: 'developer', task: `Analyze code changes: ${params.target}` },
+          { agentId: 'security', task: 'Security review of changes', dependsOn: 'developer' },
+          { agentId: 'qa', task: 'Test coverage analysis', dependsOn: 'developer' },
+        ],
+        onError: 'continue',
+      };
+
+    case 'report':
+      return {
+        id: `report_${Date.now()}`,
+        name: `Report: ${params.query ?? 'Unknown'}`,
+        steps: [
+          { agentId: 'data', task: `Gather data for: ${params.query}` },
+          { agentId: 'analyst', task: 'Analyze data and extract insights', dependsOn: 'data' },
+          { agentId: 'writer', task: 'Write formatted report', dependsOn: 'analyst' },
+        ],
+        onError: 'stop',
+      };
+
+    default:
+      throw new Error(`Unknown chain type: ${type}`);
+  }
+}
+
+/**
+ * Chain command handler
+ */
+export async function chain(action: string, ...args: string[]): Promise<unknown> {
+  switch (action?.toLowerCase()) {
+    case 'run': {
+      const [type, ...params] = args;
+      if (!type) {
+        return { error: 'Usage: /chain run <type> [target/query]' };
+      }
+      const chainConfig = createChain(
+        type as 'due_diligence' | 'research' | 'code_review' | 'report',
+        { target: params[0], query: params[0] }
+      );
+      return executeChain(chainConfig);
+    }
+
+    case 'dd':
+    case 'due_diligence': {
+      const target = args[0];
+      if (!target) {
+        return { error: 'Usage: /chain dd <company_name>' };
+      }
+      const chainConfig = createChain('due_diligence', { target });
+      return executeChain(chainConfig);
+    }
+
+    case 'research': {
+      const query = args.join(' ');
+      if (!query) {
+        return { error: 'Usage: /chain research <query>' };
+      }
+      const chainConfig = createChain('research', { query });
+      return executeChain(chainConfig);
+    }
+
+    case 'review': {
+      const target = args[0];
+      if (!target) {
+        return { error: 'Usage: /chain review <PR_or_branch>' };
+      }
+      const chainConfig = createChain('code_review', { target });
+      return executeChain(chainConfig);
+    }
+
+    case 'status': {
+      const chainId = args[0];
+      if (!chainId) {
+        // List recent chains
+        const result = await widgetdc_mcp('graph.read_cypher', {
+          query: `
+            MATCH (c:AgentChain)
+            RETURN c.id AS id, c.name AS name, c.status AS status,
+                   c.stepsCompleted AS completed, c.stepCount AS total
+            ORDER BY c.startedAt DESC LIMIT 10
+          `,
+        });
+        return result;
+      }
+      // Get specific chain
+      const result = await widgetdc_mcp('graph.read_cypher', {
+        query: `
+          MATCH (c:AgentChain {id: $chainId})
+          RETURN c
+        `,
+        params: { chainId },
+      });
+      return result;
+    }
+
+    case 'agents':
+      return {
+        agents: Object.entries(AGENTS).map(([id, info]) => ({
+          id,
+          name: info.name,
+          emoji: info.emoji,
+          skills: info.skills,
+        })),
+      };
+
+    default:
+      return {
+        help: 'Multi-Agent Chain — Sequential agent delegation 🔗',
+        commands: {
+          '/chain run <type> [params]': 'Run predefined chain',
+          '/chain dd <company>': 'Due Diligence chain',
+          '/chain research <query>': 'Research chain',
+          '/chain review <PR>': 'Code Review chain',
+          '/chain status [chainId]': 'Chain status',
+          '/chain agents': 'List available agents',
+        },
+        chainTypes: ['due_diligence', 'research', 'code_review', 'report'],
+        agents: Object.keys(AGENTS),
       };
   }
 }
