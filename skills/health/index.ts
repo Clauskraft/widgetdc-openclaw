@@ -268,14 +268,33 @@ export async function hourlyReport(): Promise<unknown> {
     },
   ];
 
-  // Send til Slack hvis konfigureret
+  // Send til Slack via backend notifications endpoint
   try {
-    await widgetdc_mcp('slack.post', {
-      channel: '#agent-status',
-      blocks,
+    const agentLines = a.agents.map((ag: any) =>
+      `${ag.emoji} ${ag.name}: ${ag.status === 'active' ? '🟢' : ag.status === 'idle' ? '🟡' : '🔴'}`
+    ).join('\n');
+
+    const serviceLines = [
+      `• Backend: ${h.services.backend.ok ? '✅' : '❌'} (${h.services.backend.latencyMs}ms)`,
+      `• RLM Engine: ${h.services.rlm_engine.ok ? '✅' : '❌'} (${h.services.rlm_engine.latencyMs}ms)`,
+      `• Neo4j: ${h.services.neo4j_graph.ok ? '✅' : '❌'}`,
+      `• Context Folding: ${h.services.context_folding ? '✅' : '⚠️'}`,
+    ].join('\n');
+
+    await fetch(`${BACKEND}/api/notifications/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        level: h.overall.includes('healthy') ? 'success' : 'warning',
+        title: `🕐 Hourly Status: ${h.overall}`,
+        message: `*Platform:* ${h.overall}\n*Agents:* ${a.summary.active}/${a.agentCount} active\n\n*Services:*\n${serviceLines}\n\n*Agents:*\n${agentLines}`,
+        source: 'OpenClaw-Health',
+        channel: '#agent-status',
+      }),
+      signal: AbortSignal.timeout(10_000),
     });
-  } catch {
-    // Slack ikke konfigureret, ignorer
+  } catch (e) {
+    console.warn(`[health] Slack notification failed: ${e}`);
   }
 
   return {

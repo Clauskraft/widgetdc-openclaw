@@ -575,27 +575,25 @@ async function sendSlackAlert(
   const emoji = level === 'critical' ? '🔴' : level === 'warning' ? '🟡' : '🔵';
 
   try {
-    await widgetdc_mcp('slack.post', {
-      channel,
-      blocks: [
-        {
-          type: 'header',
-          text: { type: 'plain_text', text: `${emoji} ${title}`, emoji: true },
-        },
-        {
-          type: 'section',
-          text: { type: 'mrkdwn', text: '```' + message.substring(0, 2900) + '```' },
-        },
-        {
-          type: 'context',
-          elements: [
-            { type: 'mrkdwn', text: `_${new Date().toISOString()}_` },
-          ],
-        },
-      ],
+    // Use backend notifications endpoint (not MCP - slack.post doesn't exist)
+    const res = await fetch(`${BACKEND_URL}/api/notifications/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        level,
+        title: `${emoji} ${title}`,
+        message: message.substring(0, 2900),
+        source: 'RLM-Events',
+        channel,
+      }),
+      signal: AbortSignal.timeout(10_000),
     });
-  } catch {
-    // Slack not configured or channel doesn't exist
+
+    if (!res.ok) {
+      console.warn(`[rlm-events] Slack alert failed: ${res.status}`);
+    }
+  } catch (e) {
+    console.warn(`[rlm-events] Slack alert error: ${e}`);
   }
 }
 
@@ -712,15 +710,16 @@ async function startListener(): Promise<unknown> {
 
 async function trySSE(): Promise<boolean> {
   try {
-    // Check if SSE endpoint exists
-    const response = await fetch(`${RLM_URL}/events/sse`, {
+    // Check if SSE stream endpoint exists
+    const response = await fetch(`${RLM_URL}/api/rlm/events/stream`, {
       method: 'HEAD',
       signal: AbortSignal.timeout(5000),
     });
 
     if (response.ok || response.status === 405) {
-      // SSE endpoint exists, but we can't use EventSource in Node.js easily
-      // Fall back to polling
+      // SSE endpoint exists, but EventSource isn't available in Node.js
+      // Fall back to polling which works reliably
+      console.log('[rlm-events] SSE endpoint available, using polling for reliability');
       return false;
     }
     return false;
@@ -732,6 +731,9 @@ async function trySSE(): Promise<boolean> {
 function startPolling(): void {
   listenerState.mode = 'polling';
 
+  // Track last seen event to avoid duplicates
+  let lastEventTimestamp: string | null = null;
+
   pollInterval = setInterval(async () => {
     if (!listenerState.active) {
       if (pollInterval) clearInterval(pollInterval);
@@ -739,43 +741,31 @@ function startPolling(): void {
     }
 
     try {
-      // Poll RLM events endpoint
-      const response = await fetch(`${RLM_URL}/events/poll`, {
+      // Poll RLM events/recent endpoint (correct endpoint)
+      const response = await fetch(`${RLM_URL}/api/rlm/events/recent`, {
         method: 'GET',
         headers: { 'Accept': 'application/json' },
         signal: AbortSignal.timeout(10_000),
       });
 
       if (response.ok) {
-        const data = await response.json() as { events?: IntelligenceEvent[] } | IntelligenceEvent[];
-        const events = Array.isArray(data) ? data : (data.events ?? []);
+        const data = await response.json() as { events?: IntelligenceEvent[]; total?: number };
+        const events = data.events ?? [];
+
         for (const event of events) {
+          // Skip already processed events
+          if (lastEventTimestamp && event.timestamp <= lastEventTimestamp) {
+            continue;
+          }
           await dispatchEvent(event);
+          lastEventTimestamp = event.timestamp;
         }
       }
     } catch (e) {
       if (listenerState.active) {
         listenerState.errors++;
+        console.warn(`[rlm-events] Poll error: ${e}`);
       }
-    }
-
-    // Also poll backend for any buffered events
-    try {
-      const backendResponse = await fetch(`${BACKEND_URL}/api/events/poll`, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-        signal: AbortSignal.timeout(10_000),
-      });
-
-      if (backendResponse.ok) {
-        const data = await backendResponse.json() as { events?: IntelligenceEvent[] } | IntelligenceEvent[];
-        const events = Array.isArray(data) ? data : (data.events ?? []);
-        for (const event of events) {
-          await dispatchEvent(event);
-        }
-      }
-    } catch {
-      // Backend events endpoint may not exist
     }
   }, 3000); // Poll every 3 seconds
 }
