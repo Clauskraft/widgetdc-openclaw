@@ -103,6 +103,10 @@ RUN printf '%s\n' '#!/usr/bin/env bash' 'exec node /openclaw/dist/entry.js "$@"'
 
 COPY src ./src
 COPY entrypoint.sh ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh
+
+# Bundle WidgeTDC skills into image (synced to volume at runtime by entrypoint)
+COPY skills/ /app/skills/
 
 # Create openclaw user, set up directories, install Homebrew as that user
 RUN useradd -m -s /bin/bash openclaw \

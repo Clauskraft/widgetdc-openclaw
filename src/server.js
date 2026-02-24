@@ -1278,6 +1278,9 @@ proxy.on("proxyReq", (proxyReq, req, res) => {
 
 proxy.on("proxyReqWs", (proxyReq, req, socket, options, head) => {
   proxyReq.setHeader("Authorization", `Bearer ${OPENCLAW_GATEWAY_TOKEN}`);
+  // Rewrite Origin to localhost so the gateway's origin check passes.
+  // The gateway binds to loopback and rejects external origins unless rewritten here.
+  proxyReq.setHeader("Origin", `http://localhost:${INTERNAL_GATEWAY_PORT}`);
 });
 
 // Auto-inject token into /openclaw browser GET requests so the Control UI works
