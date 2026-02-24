@@ -96,7 +96,9 @@ if [ ! -f "${CONFIG_FILE}" ]; then
       "rag-fasedelt": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app" } },
       "qmd": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app" } },
       "cicd": { "enabled": true, "env": { "GITHUB_TOKEN": "${GITHUB_TOKEN}", "GITHUB_OWNER": "Clauskraft" } },
-      "act": { "enabled": true }
+      "act": { "enabled": true },
+      "widgetdc-setup": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app", "RLM_ENGINE_URL": "https://rlm-engine-production.up.railway.app" } },
+      "writer": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app", "RLM_ENGINE_URL": "https://rlm-engine-production.up.railway.app" } }
     }
   },
   "agents": {
@@ -122,7 +124,7 @@ if [ ! -f "${CONFIG_FILE}" ]; then
       }
     },
     "list": [
-      { "id": "main",         "default": true, "workspace": "${STATE_DIR}/workspace-main",         "name": "Kaptajn Klo",    "skills": ["widgetdc-mcp","graph","health","rag","rag-fasedelt","qmd","cicd","act"],  "identity": { "name": "Kaptajn Klo",    "emoji": "🦞" } },
+      { "id": "main",         "default": true, "workspace": "${STATE_DIR}/workspace-main",         "name": "Kaptajn Klo",    "skills": ["widgetdc-mcp","graph","health","rag","rag-fasedelt","qmd","cicd","act","widgetdc-setup","writer"],  "identity": { "name": "Kaptajn Klo",    "emoji": "🦞" } },
       { "id": "github",       "workspace": "${STATE_DIR}/workspace-github",       "name": "Repo Sherif",    "skills": ["widgetdc-mcp","cicd","graph"],                                            "identity": { "name": "Repo Sherif",    "emoji": "🤠" } },
       { "id": "data",         "workspace": "${STATE_DIR}/workspace-data",         "name": "Graf-Oktopus",   "skills": ["widgetdc-mcp","graph","rag","qmd","rag-fasedelt"],                        "identity": { "name": "Graf-Oktopus",   "emoji": "🐙" } },
       { "id": "infra",        "workspace": "${STATE_DIR}/workspace-infra",        "name": "Jernfod",        "skills": ["widgetdc-mcp","health","graph","cicd"],                                   "identity": { "name": "Jernfod",        "emoji": "🦾" } },
@@ -131,7 +133,7 @@ if [ ! -f "${CONFIG_FILE}" ]; then
       { "id": "analyst",      "workspace": "${STATE_DIR}/workspace-analyst",      "name": "Tal-Trold",     "skills": ["widgetdc-mcp","rag","graph","qmd"],                                       "identity": { "name": "Tal-Trold",     "emoji": "📊" } },
       { "id": "coder",        "workspace": "${STATE_DIR}/workspace-coder",        "name": "Kodehaj",       "skills": ["widgetdc-mcp","graph","cicd"],                                            "identity": { "name": "Kodehaj",       "emoji": "🦈" } },
       { "id": "orchestrator", "workspace": "${STATE_DIR}/workspace-orchestrator", "name": "Dirigenten",    "skills": ["widgetdc-mcp","graph","health"],                                          "identity": { "name": "Dirigenten",    "emoji": "🎼" } },
-      { "id": "documentalist","workspace": "${STATE_DIR}/workspace-documentalist","name": "Arkivar-Rex",   "skills": ["widgetdc-mcp","rag","qmd","graph"],                                       "identity": { "name": "Arkivar-Rex",   "emoji": "📚" } },
+      { "id": "documentalist","workspace": "${STATE_DIR}/workspace-documentalist","name": "Arkivar-Rex",   "skills": ["widgetdc-mcp","rag","qmd","graph","writer"],                              "identity": { "name": "Arkivar-Rex",   "emoji": "📚" } },
       { "id": "harvester",    "workspace": "${STATE_DIR}/workspace-harvester",    "name": "Stovsugeren",   "skills": ["widgetdc-mcp","rag","graph"],                                             "identity": { "name": "Stovsugeren",   "emoji": "🌀" } },
       { "id": "contracts",    "workspace": "${STATE_DIR}/workspace-contracts",    "name": "Kontrakt-Karen","skills": ["widgetdc-mcp","graph","rag"],                                             "identity": { "name": "Kontrakt-Karen","emoji": "📋" } }
     ]
@@ -147,6 +149,24 @@ SEEDEOF
   chown -R openclaw:openclaw "${STATE_DIR}" 2>/dev/null || true
   echo "[entrypoint] Full WidgeTDC config seeded"
 fi
+
+# ── Skill migration — tilføj nye skills til eksisterende config ──────
+# Kører altid (ikke kun første boot) for at sikre nye skills er aktiveret.
+MIGRATE_SKILLS=("widgetdc-setup" "writer")
+for SKILL in "${MIGRATE_SKILLS[@]}"; do
+  # Tjek om skill allerede er i config via grep
+  if [ -f "${CONFIG_FILE}" ] && ! grep -q "\"${SKILL}\"" "${CONFIG_FILE}" 2>/dev/null; then
+    # Brug openclaw config set til at tilføje skill (kun hvis openclaw er tilgængeligt)
+    if command -v node >/dev/null 2>&1 && [ -f "${OPENCLAW_ENTRY:-/openclaw/dist/entry.js}" ]; then
+      BACKEND_URL="https://backend-production-d3da.up.railway.app"
+      RLM_URL="https://rlm-engine-production.up.railway.app"
+      SKILL_JSON="{\"enabled\":true,\"env\":{\"WIDGETDC_BACKEND_URL\":\"${BACKEND_URL}\",\"RLM_ENGINE_URL\":\"${RLM_URL}\"}}"
+      node "${OPENCLAW_ENTRY:-/openclaw/dist/entry.js}" config set "skills.entries.${SKILL}" "${SKILL_JSON}" 2>/dev/null \
+        && echo "[entrypoint] Added skill to config: ${SKILL}" \
+        || echo "[entrypoint] Could not add skill (will appear in workspace but needs manual enable): ${SKILL}"
+    fi
+  fi
+done
 
 # ── Per-agent workspaces med skills og SOUL.md ───────────────────────
 # Pattern: /data/.openclaw/workspace-{agentId}
@@ -293,7 +313,7 @@ setup_agent_workspace "main" "Kaptajn Klo" "🦞" \
   "- kg_rag.query, consulting.pattern.search/insight/decision, knowledge.search_claims
 - graph.read_cypher/stats/health, agent.task.*, supervisor.*
 - docgen.*, financial.*, osint.*, cve.*, trident.*" \
-  "widgetdc-mcp,graph,health,rag,rag-fasedelt,qmd,cicd,act"
+  "widgetdc-mcp,graph,health,rag,rag-fasedelt,qmd,cicd,act,widgetdc-setup,writer"
 
 setup_agent_workspace "github" "Repo Sherif" "🤠" \
   "GitHub & CI/CD vagt for alle Clauskraft repos." \
@@ -358,7 +378,7 @@ setup_agent_workspace "documentalist" "Arkivar-Rex" "📚" \
   "- docgen.powerpoint, docgen.word, docgen.excel, docgen.diagram
 - notes.create, notes.update, notes.delete, notes.get, notes.list
 - vidensarkiv.* (knowledge archiving)" \
-  "widgetdc-mcp,rag,qmd,graph"
+  "widgetdc-mcp,rag,qmd,graph,writer"
 
 setup_agent_workspace "harvester" "Stovsugeren" "🌀" \
   "Data ingestion specialist og RAG pipeline vedligehold." \
