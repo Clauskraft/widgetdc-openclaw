@@ -40,7 +40,12 @@ export async function task(action: string, taskId?: string, payload?: string) {
     case 'claim':
       return widgetdc_mcp('agent.task.claim', { taskId: taskId! });
     case 'complete':
-      return widgetdc_mcp('agent.task.complete', { taskId: taskId!, result: payload ? JSON.parse(payload) : {} });
+      try {
+        const result = payload ? (typeof payload === 'string' ? JSON.parse(payload) : payload) : {};
+        return widgetdc_mcp('agent.task.complete', { taskId: taskId!, result });
+      } catch {
+        return { error: 'Invalid JSON result. Use: task("complete", "<taskId>", \'{"summary":"..."}\')' };
+      }
     case 'fail':
       return widgetdc_mcp('agent.task.fail', { taskId: taskId!, reason: payload || 'Unknown' });
     case 'status':
