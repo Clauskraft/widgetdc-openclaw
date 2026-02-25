@@ -25,7 +25,8 @@
         "systemPromptFile": "/data/workspace/agent-souls/main.md",
         "contextTokens": 1000000,
         "timeoutSeconds": 300,
-        "elevated": true
+        "elevated": true,
+        "heartbeat": { "enabled": true, "every": "1h" }
       },
       {
         "id": "skribleren",
@@ -83,7 +84,7 @@
       "id": "infra-health",
       "schedule": "*/15 * * * *",
       "description": "Platform health check hvert 15. minut",
-      "message": "Use only integration.system_health and integration.openclaw_health tools. Do not run shell commands. Return JSON with overall_status, service_breakdown, incidents, next_actions. Start final user-facing line with OpenClaw Bot - infra-health:",
+      "message": "Call /health quick to check Backend and RLM. Do NOT run shell commands or type widgetdc_mcp as bash. Summarize as JSON with overall_status, service_breakdown, incidents, next_actions. End with OpenClaw Bot - infra-health:",
       "enabled": true,
       "notify": true
     },
@@ -91,7 +92,7 @@
       "id": "github-cicd",
       "schedule": "0 */4 * * *",
       "description": "GitHub CI/CD status hver 4. time",
-      "message": "Use only github.* tools. Do not run shell commands. If rate-limited, return partial=true and retry_hint. Return JSON with repo_status, failed_checks, required_actions, run_receipt. Start final user-facing line with OpenClaw Bot - github-cicd:",
+      "message": "Call /cicd status to check CI/CD. Do NOT run shell commands or type widgetdc_mcp as bash. Summarize as JSON with repo_status, failed_checks, required_actions, run_receipt. End with OpenClaw Bot - github-cicd:",
       "enabled": true,
       "notify": true
     },
@@ -99,7 +100,7 @@
       "id": "data-graph-health",
       "schedule": "15 8 * * *",
       "description": "Knowledge graph health daglig kl. 08:15",
-      "message": "Use only graph/integration tools. Do not run shell commands. Return JSON with status, graph_kpis, anomalies, next_actions. Start final user-facing line with OpenClaw Bot - data-graph-health:",
+      "message": "Call /graph stats to get node and relationship counts. Do NOT run shell commands. Summarize as JSON with status, graph_kpis, anomalies, next_actions. End with OpenClaw Bot - data-graph-health:",
       "enabled": true,
       "notify": true
     },
@@ -107,7 +108,7 @@
       "id": "orchestrator-sync",
       "schedule": "0 */2 * * *",
       "description": "Task orchestration sync hver 2. time",
-      "message": "Use only agent.task.* and supervisor.* tools. Do not run shell commands. Return JSON with plan, assignments, blocked_items, verification. Start final user-facing line with OpenClaw Bot - orchestrator-sync:",
+      "message": "Call /supervisor status and /task fetch to check pending work. Do NOT run shell commands. Summarize as JSON with plan, assignments, blocked_items, verification. End with OpenClaw Bot - orchestrator-sync:",
       "enabled": false,
       "notify": true
     },
@@ -115,7 +116,7 @@
       "id": "security-cve-scan",
       "schedule": "0 */6 * * *",
       "description": "CVE scanning hver 6. time",
-      "message": "Use only github/security integrations. Do not run shell commands. Prioritize critical/high exploitable issues only. Return JSON with critical_findings, cvss_summary, affected_components, remediation_plan. Start final user-facing line with OpenClaw Bot - security-cve-scan:",
+      "message": "Use web_search to find recent critical CVEs for Node.js, Express, Neo4j. Do NOT run shell commands. Summarize as JSON with critical_findings, cvss_summary, affected_components, remediation_plan. End with OpenClaw Bot - security-cve-scan:",
       "enabled": false,
       "notify": true
     },
@@ -123,7 +124,7 @@
       "id": "harvester-freshness",
       "schedule": "0 */4 * * *",
       "description": "Data freshness check hver 4. time",
-      "message": "Use only memory/integration tools. Do not run shell commands. Return JSON with freshness_index, stale_sources_top10, harvest_delta, next_actions. Start final user-facing line with OpenClaw Bot - harvester-freshness:",
+      "message": "Call /graph stats to check data freshness. Do NOT run shell commands. Summarize as JSON with freshness_index, stale_sources_top10, harvest_delta, next_actions. End with OpenClaw Bot - harvester-freshness:",
       "enabled": false,
       "notify": true
     },
@@ -131,7 +132,7 @@
       "id": "strategist-daily",
       "schedule": "0 */12 * * *",
       "description": "Strategisk briefing hver 12. time",
-      "message": "No shell commands. Return JSON with top_3_decisions, top_3_risks, top_3_next_steps, owners_deadlines. Start final user-facing line with OpenClaw Bot - strategist-daily:",
+      "message": "Review platform status from memory and recent activity. Do NOT run shell commands. Produce JSON with top_3_decisions, top_3_risks, top_3_next_steps, owners_deadlines. End with OpenClaw Bot - strategist-daily:",
       "enabled": false,
       "notify": true
     }
