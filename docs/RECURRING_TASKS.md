@@ -49,3 +49,35 @@ git push
 | Health check | **Ja** — `/health` skill, kan `alertCritical()` ved nedetid |
 
 **Anbefaling:** Brug GitHub Actions til persona-export (daglig). Brug OpenClaw-agenter til Slack + Cursor sync on-demand.
+
+---
+
+## 5. Produktions-cron jobs (WidgeTDC)
+
+Følgende jobs er standard for platformdrift:
+
+- `infra-health` (hver 15 min)
+- `github-cicd` (hver 30 min)
+- `data-graph-health` (hver time)
+- `orchestrator-sync` (hver 2. time)
+- `harvester-freshness` (hver 4. time)
+- `security-cve-scan` (hver 6. time)
+- `strategist-daily` (hver 12. time)
+
+Konfigurationsfiler:
+- `docs/CRON_ROUTING_PROFILE.json`
+- `docs/CRON_PROMPTS.md`
+
+Driftsregler:
+- Ingen shell-kommandoer i cron-prompts
+- JSON-only output pr. job
+- `run_receipt`/`next_actions` skal altid returneres
+
+Staged rollout (anbefalet):
+- **Høj**: `infra-health` + `data-graph-health` + `github-cicd`
+- **Medium**: Aktiver `hooks` med `OPENCLAW_HOOKS_TOKEN` til Activepieces-triggering
+- **Lav**: Aktivér øvrige cron-jobs efter 24-48 timers stabil drift
+
+Slack-levering:
+- Brug `delivery.mode: announce` + `channel: last` som safe default
+- For fast kanal: sæt kanal eksplicit (fx `to: channel:C123...`) i cron-job
