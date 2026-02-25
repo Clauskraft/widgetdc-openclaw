@@ -45,11 +45,11 @@ jobs:
 
       - name: Deploy to Railway
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY }}
         run: |
           if [ -z "$RAILWAY_TOKEN" ]; then
-            echo "⚠️ RAILWAY_TOKEN not set - skipping deploy"
-            echo "Add RAILWAY_TOKEN to GitHub Secrets to enable auto-deploy"
+            echo "⚠️ RAILWAY secret not set - skipping deploy"
+            echo "Add RAILWAY to GitHub Secrets to enable auto-deploy"
             exit 0
           fi
           railway up --detach
