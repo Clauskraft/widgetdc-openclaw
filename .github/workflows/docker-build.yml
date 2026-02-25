@@ -37,19 +37,19 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli
-
-      - name: Deploy to Railway
+      - name: Trigger Railway Deploy via Webhook
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY }}
+          RAILWAY_WEBHOOK: ${{ secrets.RAILWAY_WEBHOOK }}
         run: |
-          if [ -z "$RAILWAY_TOKEN" ]; then
-            echo "⚠️ RAILWAY secret not set - skipping deploy"
-            echo "Add RAILWAY to GitHub Secrets to enable auto-deploy"
+          if [ -z "$RAILWAY_WEBHOOK" ]; then
+            echo "ℹ️ RAILWAY_WEBHOOK not set"
+            echo "Option 1: Add deploy webhook URL from Railway Dashboard"
+            echo "Option 2: Enable GitHub integration in Railway project settings"
+            echo ""
+            echo "To get webhook: Railway Dashboard → Project → Settings → Deploy Webhooks"
             exit 0
           fi
-          railway up --detach
+          curl -X POST "$RAILWAY_WEBHOOK" \
+            -H "Content-Type: application/json" \
+            -d '{"ref": "${{ github.sha }}", "branch": "main"}'
+          echo "✅ Deploy triggered via webhook"
