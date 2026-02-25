@@ -220,6 +220,31 @@ if [ -f "${CONFIG_FILE}" ] && grep -q '"groupPolicy".*"allowlist"' "${CONFIG_FIL
   fi
 fi
 
+# ── Hooks migration — aktiver hooks hvis OPENCLAW_HOOKS_TOKEN sat ──────
+if [ -f "${CONFIG_FILE}" ] && [ -n "${OPENCLAW_HOOKS_TOKEN:-}" ] && command -v node >/dev/null 2>&1; then
+  export CONFIG_FILE OPENCLAW_HOOKS_TOKEN
+  node -e "
+    const fs = require('fs');
+    const path = process.env.CONFIG_FILE;
+    const token = process.env.OPENCLAW_HOOKS_TOKEN;
+    if (!token) process.exit(0);
+    let cfg;
+    try { cfg = JSON.parse(fs.readFileSync(path, 'utf8')); } catch (e) { process.exit(0); }
+    const h = cfg.hooks || {};
+    cfg.hooks = {
+      enabled: true,
+      token: token,
+      path: h.path || '/hooks',
+      defaultSessionKey: h.defaultSessionKey || 'hook:ingress',
+      allowRequestSessionKey: h.allowRequestSessionKey ?? false,
+      onMessage: h.onMessage || [],
+      onError: h.onError || []
+    };
+    fs.writeFileSync(path, JSON.stringify(cfg, null, 2));
+    console.log('[entrypoint] Hooks enabled (OPENCLAW_HOOKS_TOKEN set)');
+  " 2>/dev/null || true
+fi
+
 # ── Slack channel migration — tilføj channels.slack hvis env vars sat og mangler ──────
 if [ -f "${CONFIG_FILE}" ] && [ -n "${SLACK_APP_TOKEN}" ] && [ -n "${SLACK_BOT_TOKEN}" ] && ! grep -q '"slack"' "${CONFIG_FILE}" 2>/dev/null; then
   if command -v node >/dev/null 2>&1 && [ -f "${OPENCLAW_ENTRY:-/openclaw/dist/entry.js}" ]; then
