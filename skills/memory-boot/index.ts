@@ -87,7 +87,7 @@ async function loadCoreMemories(agentId: string): Promise<Memory[]> {
     const result = await widgetdc_mcp('graph.read_cypher', {
       query: `
         MATCH (m:AgentMemory {agentId: $agentId})
-        WHERE m.tier = 'core' OR m.type IN ['persona', 'identity', 'critical', 'fact']
+        WHERE (m.tier = 'core' OR m.type IN ['persona', 'identity', 'critical', 'fact'])
         AND (m.deleted IS NULL OR m.deleted = false)
         RETURN m.id AS id, m.value AS content, m.type AS type, 
                'core' AS tier, m.createdAt AS createdAt
@@ -757,9 +757,7 @@ export async function memory_boot(action = 'boot', ...args: string[]): Promise<u
       }
       return memoryStore(
         args[0] || 'main',
-        args[1],
-        args[2] || 'learning',
-        (args[3] as MemoryTier) || 'working'
+        args.slice(1).join(' ')
       );
 
     case 'consolidate':

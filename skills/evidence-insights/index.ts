@@ -183,7 +183,7 @@ async function gatherEvidence(
     const lessonResult = await widgetdc_mcp('graph.read_cypher', {
       query: `
         MATCH (l:Lesson)
-        WHERE l.content CONTAINS $keyword OR l.title CONTAINS $keyword
+        WHERE (l.content CONTAINS $keyword OR l.title CONTAINS $keyword)
         ${domain ? 'AND (l.domain = $domain OR l.domain = "general")' : ''}
         RETURN l.id AS id, l.title AS source, l.content AS quote
         LIMIT $limit
