@@ -1,0 +1,1232 @@
+From de67542d0c405768ebdbb66265a67032d9aea388 Mon Sep 17 00:00:00 2001
+From: Cursor Agent <cursoragent@cursor.com>
+Date: Wed, 25 Feb 2026 01:02:39 +0000
+Subject: [PATCH] feat: Add OpenClaw agent types and graph labels
+
+New NodeLabels:
+- EvidenceBasedInsight, KnowledgePacket, KnowledgeTransfer, KnowledgeRequest
+- AgentPersona, AgentMemory, AgentChain, PersonaTrait, Expertise, BootEvent
+- Lesson, ContextFold
+- RLM Intelligence Events (12 types)
+- Project, KanbanTask, AgentMessage
+
+New RelationshipTypes:
+- HAS_TRAIT, HAS_EXPERTISE, HAS_PERSONA
+- TRANSFERRED_TO, CONSOLIDATED_TO, LEARNED_FROM
+- OWNS_PROJECT, HAS_KANBAN_TASK
+- SENT_MESSAGE, RECEIVED_MESSAGE
+
+New Agent enums:
+- OpenClawAgentId (12 agents)
+- MemoryTier (core/working/archival)
+- KnowledgePacketType (insight/lesson/fact/procedure/warning)
+- Extended AgentPersona with OpenClaw personas
+- Extended SignalType with chain execution signals
+---
+ dist/agent/enums.d.ts                  |  13 ++-
+ dist/agent/enums.d.ts.map              |   2 +-
+ dist/agent/enums.js                    |  48 ++++++++++-
+ dist/agent/enums.js.map                |   2 +-
+ dist/graph/labels.d.ts                 |   2 +-
+ dist/graph/labels.d.ts.map             |   2 +-
+ dist/graph/labels.js                   |  32 +++++++-
+ dist/graph/labels.js.map               |   2 +-
+ dist/graph/relationships.d.ts          |   2 +-
+ dist/graph/relationships.d.ts.map      |   2 +-
+ dist/graph/relationships.js            |  13 +++
+ dist/graph/relationships.js.map        |   2 +-
+ python/widgetdc_contracts/agent.py     |  77 +++++++++++++++++-
+ python/widgetdc_contracts/graph.py     |  68 +++++++++++++---
+ python/widgetdc_contracts/http_.py     |  32 ++++----
+ schemas/agent/AgentPersona.json        |  42 +++++++++-
+ schemas/agent/KnowledgePacketType.json |  26 ++++++
+ schemas/agent/MemoryTier.json          |  18 +++++
+ schemas/agent/OpenClawAgentId.json     |  54 +++++++++++++
+ schemas/agent/SignalType.json          |  16 ++++
+ schemas/graph/NodeLabel.json           | 108 +++++++++++++++++++++++++
+ schemas/graph/RelationshipType.json    |  40 +++++++++
+ src/agent/enums.ts                     |  57 ++++++++++++-
+ src/graph/labels.ts                    |  32 +++++++-
+ src/graph/relationships.ts             |  13 +++
+ 25 files changed, 662 insertions(+), 43 deletions(-)
+ create mode 100644 schemas/agent/KnowledgePacketType.json
+ create mode 100644 schemas/agent/MemoryTier.json
+ create mode 100644 schemas/agent/OpenClawAgentId.json
+
+diff --git a/dist/agent/enums.d.ts b/dist/agent/enums.d.ts
+index 1351ff5..d65c6b9 100644
+--- a/dist/agent/enums.d.ts
++++ b/dist/agent/enums.d.ts
+@@ -3,9 +3,18 @@ import { Static } from '@sinclair/typebox';
+ export declare const AgentTier: import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TLiteral<"ANALYST">, import("@sinclair/typebox").TLiteral<"ASSOCIATE">, import("@sinclair/typebox").TLiteral<"MANAGER">, import("@sinclair/typebox").TLiteral<"PARTNER">, import("@sinclair/typebox").TLiteral<"ARCHITECT">]>;
+ export type AgentTier = Static<typeof AgentTier>;
+ /** RLM Engine agent personas — specialized cognitive roles */
+-export declare const AgentPersona: import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TLiteral<"RESEARCHER">, import("@sinclair/typebox").TLiteral<"ENGINEER">, import("@sinclair/typebox").TLiteral<"CUSTODIAN">, import("@sinclair/typebox").TLiteral<"ARCHITECT">, import("@sinclair/typebox").TLiteral<"SENTINEL">, import("@sinclair/typebox").TLiteral<"ARCHIVIST">, import("@sinclair/typebox").TLiteral<"HARVESTER">, import("@sinclair/typebox").TLiteral<"ANALYST">, import("@sinclair/typebox").TLiteral<"INTEGRATOR">, import("@sinclair/typebox").TLiteral<"TESTER">]>;
++export declare const AgentPersona: import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TLiteral<"RESEARCHER">, import("@sinclair/typebox").TLiteral<"ENGINEER">, import("@sinclair/typebox").TLiteral<"CUSTODIAN">, import("@sinclair/typebox").TLiteral<"ARCHITECT">, import("@sinclair/typebox").TLiteral<"SENTINEL">, import("@sinclair/typebox").TLiteral<"ARCHIVIST">, import("@sinclair/typebox").TLiteral<"HARVESTER">, import("@sinclair/typebox").TLiteral<"ANALYST">, import("@sinclair/typebox").TLiteral<"INTEGRATOR">, import("@sinclair/typebox").TLiteral<"TESTER">, import("@sinclair/typebox").TLiteral<"MAIN">, import("@sinclair/typebox").TLiteral<"ORCHESTRATOR">, import("@sinclair/typebox").TLiteral<"DEVELOPER">, import("@sinclair/typebox").TLiteral<"WRITER">, import("@sinclair/typebox").TLiteral<"DATA_SCIENTIST">, import("@sinclair/typebox").TLiteral<"SECURITY">, import("@sinclair/typebox").TLiteral<"DEVOPS">, import("@sinclair/typebox").TLiteral<"QA">, import("@sinclair/typebox").TLiteral<"UX">, import("@sinclair/typebox").TLiteral<"PM">]>;
+ export type AgentPersona = Static<typeof AgentPersona>;
++/** OpenClaw agent IDs — lowercase identifiers for skills routing */
++export declare const OpenClawAgentId: import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TLiteral<"main">, import("@sinclair/typebox").TLiteral<"orchestrator">, import("@sinclair/typebox").TLiteral<"developer">, import("@sinclair/typebox").TLiteral<"writer">, import("@sinclair/typebox").TLiteral<"analyst">, import("@sinclair/typebox").TLiteral<"researcher">, import("@sinclair/typebox").TLiteral<"security">, import("@sinclair/typebox").TLiteral<"data">, import("@sinclair/typebox").TLiteral<"devops">, import("@sinclair/typebox").TLiteral<"qa">, import("@sinclair/typebox").TLiteral<"ux">, import("@sinclair/typebox").TLiteral<"pm">]>;
++export type OpenClawAgentId = Static<typeof OpenClawAgentId>;
++/** Memory tier for hierarchical agent memory */
++export declare const MemoryTier: import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TLiteral<"core">, import("@sinclair/typebox").TLiteral<"working">, import("@sinclair/typebox").TLiteral<"archival">]>;
++export type MemoryTier = Static<typeof MemoryTier>;
++/** Knowledge packet types for agent-to-agent transfer */
++export declare const KnowledgePacketType: import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TLiteral<"insight">, import("@sinclair/typebox").TLiteral<"lesson">, import("@sinclair/typebox").TLiteral<"fact">, import("@sinclair/typebox").TLiteral<"procedure">, import("@sinclair/typebox").TLiteral<"warning">]>;
++export type KnowledgePacketType = Static<typeof KnowledgePacketType>;
+ /** Signal types emitted during engagement execution */
+-export declare const SignalType: import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TLiteral<"task_started">, import("@sinclair/typebox").TLiteral<"task_completed">, import("@sinclair/typebox").TLiteral<"task_failed">, import("@sinclair/typebox").TLiteral<"escalation">, import("@sinclair/typebox").TLiteral<"quality_gate">, import("@sinclair/typebox").TLiteral<"tool_executed">, import("@sinclair/typebox").TLiteral<"deliverable_generated">, import("@sinclair/typebox").TLiteral<"insight">, import("@sinclair/typebox").TLiteral<"warning">]>;
++export declare const SignalType: import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TLiteral<"task_started">, import("@sinclair/typebox").TLiteral<"task_completed">, import("@sinclair/typebox").TLiteral<"task_failed">, import("@sinclair/typebox").TLiteral<"escalation">, import("@sinclair/typebox").TLiteral<"quality_gate">, import("@sinclair/typebox").TLiteral<"tool_executed">, import("@sinclair/typebox").TLiteral<"deliverable_generated">, import("@sinclair/typebox").TLiteral<"insight">, import("@sinclair/typebox").TLiteral<"warning">, import("@sinclair/typebox").TLiteral<"chain_started">, import("@sinclair/typebox").TLiteral<"chain_step_completed">, import("@sinclair/typebox").TLiteral<"chain_completed">, import("@sinclair/typebox").TLiteral<"chain_failed">]>;
+ export type SignalType = Static<typeof SignalType>;
+ //# sourceMappingURL=enums.d.ts.map
+\ No newline at end of file
+diff --git a/dist/agent/enums.d.ts.map b/dist/agent/enums.d.ts.map
+index 35cedff..a014ae8 100644
+--- a/dist/agent/enums.d.ts.map
++++ b/dist/agent/enums.d.ts.map
+@@ -1 +1 @@
+-{"version":3,"file":"enums.d.ts","sourceRoot":"","sources":["../../src/agent/enums.ts"],"names":[],"mappings":"AAAA,OAAO,EAAQ,MAAM,EAAE,MAAM,mBAAmB,CAAA;AAEhD,wDAAwD;AACxD,eAAO,MAAM,SAAS,+RAM6D,CAAA;AAEnF,MAAM,MAAM,SAAS,GAAG,MAAM,CAAC,OAAO,SAAS,CAAC,CAAA;AAEhD,8DAA8D;AAC9D,eAAO,MAAM,YAAY,+hBAW2C,CAAA;AAEpE,MAAM,MAAM,YAAY,GAAG,MAAM,CAAC,OAAO,YAAY,CAAC,CAAA;AAEtD,uDAAuD;AACvD,eAAO,MAAM,UAAU,2gBAU0C,CAAA;AAEjE,MAAM,MAAM,UAAU,GAAG,MAAM,CAAC,OAAO,UAAU,CAAC,CAAA"}
+\ No newline at end of file
++{"version":3,"file":"enums.d.ts","sourceRoot":"","sources":["../../src/agent/enums.ts"],"names":[],"mappings":"AAAA,OAAO,EAAQ,MAAM,EAAE,MAAM,mBAAmB,CAAA;AAEhD,wDAAwD;AACxD,eAAO,MAAM,SAAS,+RAM6D,CAAA;AAEnF,MAAM,MAAM,SAAS,GAAG,MAAM,CAAC,OAAO,SAAS,CAAC,CAAA;AAEhD,8DAA8D;AAC9D,eAAO,MAAM,YAAY,ogCAuBwD,CAAA;AAEjF,MAAM,MAAM,YAAY,GAAG,MAAM,CAAC,OAAO,YAAY,CAAC,CAAA;AAEtD,oEAAoE;AACpE,eAAO,MAAM,eAAe,smBAa+D,CAAA;AAE3F,MAAM,MAAM,eAAe,GAAG,MAAM,CAAC,OAAO,eAAe,CAAC,CAAA;AAE5D,gDAAgD;AAChD,eAAO,MAAM,UAAU,uLAI2C,CAAA;AAElE,MAAM,MAAM,UAAU,GAAG,MAAM,CAAC,OAAO,UAAU,CAAC,CAAA;AAElD,yDAAyD;AACzD,eAAO,MAAM,mBAAmB,yRAMiD,CAAA;AAEjF,MAAM,MAAM,mBAAmB,GAAG,MAAM,CAAC,OAAO,mBAAmB,CAAC,CAAA;AAEpE,uDAAuD;AACvD,eAAO,MAAM,UAAU,+uBAe0C,CAAA;AAEjE,MAAM,MAAM,UAAU,GAAG,MAAM,CAAC,OAAO,UAAU,CAAC,CAAA"}
+\ No newline at end of file
+diff --git a/dist/agent/enums.js b/dist/agent/enums.js
+index bd8c3ba..09bdc57 100644
+--- a/dist/agent/enums.js
++++ b/dist/agent/enums.js
+@@ -9,6 +9,7 @@ export const AgentTier = Type.Union([
+ ], { $id: 'AgentTier', description: 'Consulting agent tier (ascending autonomy)' });
+ /** RLM Engine agent personas — specialized cognitive roles */
+ export const AgentPersona = Type.Union([
++    // Core RLM personas
+     Type.Literal('RESEARCHER'),
+     Type.Literal('ENGINEER'),
+     Type.Literal('CUSTODIAN'),
+@@ -19,7 +20,47 @@ export const AgentPersona = Type.Union([
+     Type.Literal('ANALYST'),
+     Type.Literal('INTEGRATOR'),
+     Type.Literal('TESTER'),
+-], { $id: 'AgentPersona', description: 'RLM Engine agent persona' });
++    // OpenClaw agent personas
++    Type.Literal('MAIN'),
++    Type.Literal('ORCHESTRATOR'),
++    Type.Literal('DEVELOPER'),
++    Type.Literal('WRITER'),
++    Type.Literal('DATA_SCIENTIST'),
++    Type.Literal('SECURITY'),
++    Type.Literal('DEVOPS'),
++    Type.Literal('QA'),
++    Type.Literal('UX'),
++    Type.Literal('PM'),
++], { $id: 'AgentPersona', description: 'RLM Engine and OpenClaw agent persona' });
++/** OpenClaw agent IDs — lowercase identifiers for skills routing */
++export const OpenClawAgentId = Type.Union([
++    Type.Literal('main'),
++    Type.Literal('orchestrator'),
++    Type.Literal('developer'),
++    Type.Literal('writer'),
++    Type.Literal('analyst'),
++    Type.Literal('researcher'),
++    Type.Literal('security'),
++    Type.Literal('data'),
++    Type.Literal('devops'),
++    Type.Literal('qa'),
++    Type.Literal('ux'),
++    Type.Literal('pm'),
++], { $id: 'OpenClawAgentId', description: 'OpenClaw agent identifier for skills routing' });
++/** Memory tier for hierarchical agent memory */
++export const MemoryTier = Type.Union([
++    Type.Literal('core'),
++    Type.Literal('working'),
++    Type.Literal('archival'),
++], { $id: 'MemoryTier', description: 'Hierarchical memory tier' });
++/** Knowledge packet types for agent-to-agent transfer */
++export const KnowledgePacketType = Type.Union([
++    Type.Literal('insight'),
++    Type.Literal('lesson'),
++    Type.Literal('fact'),
++    Type.Literal('procedure'),
++    Type.Literal('warning'),
++], { $id: 'KnowledgePacketType', description: 'Knowledge transfer packet type' });
+ /** Signal types emitted during engagement execution */
+ export const SignalType = Type.Union([
+     Type.Literal('task_started'),
+@@ -31,5 +72,10 @@ export const SignalType = Type.Union([
+     Type.Literal('deliverable_generated'),
+     Type.Literal('insight'),
+     Type.Literal('warning'),
++    // Chain execution signals
++    Type.Literal('chain_started'),
++    Type.Literal('chain_step_completed'),
++    Type.Literal('chain_completed'),
++    Type.Literal('chain_failed'),
+ ], { $id: 'SignalType', description: 'Agent signal event type' });
+ //# sourceMappingURL=enums.js.map
+\ No newline at end of file
+diff --git a/dist/agent/enums.js.map b/dist/agent/enums.js.map
+index 07e9761..80803de 100644
+--- a/dist/agent/enums.js.map
++++ b/dist/agent/enums.js.map
+@@ -1 +1 @@
+-{"version":3,"file":"enums.js","sourceRoot":"","sources":["../../src/agent/enums.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,IAAI,EAAU,MAAM,mBAAmB,CAAA;AAEhD,wDAAwD;AACxD,MAAM,CAAC,MAAM,SAAS,GAAG,IAAI,CAAC,KAAK,CAAC;IAClC,IAAI,CAAC,OAAO,CAAC,SAAS,CAAC;IACvB,IAAI,CAAC,OAAO,CAAC,WAAW,CAAC;IACzB,IAAI,CAAC,OAAO,CAAC,SAAS,CAAC;IACvB,IAAI,CAAC,OAAO,CAAC,SAAS,CAAC;IACvB,IAAI,CAAC,OAAO,CAAC,WAAW,CAAC;CAC1B,EAAE,EAAE,GAAG,EAAE,WAAW,EAAE,WAAW,EAAE,4CAA4C,EAAE,CAAC,CAAA;AAInF,8DAA8D;AAC9D,MAAM,CAAC,MAAM,YAAY,GAAG,IAAI,CAAC,KAAK,CAAC;IACrC,IAAI,CAAC,OAAO,CAAC,YAAY,CAAC;IAC1B,IAAI,CAAC,OAAO,CAAC,UAAU,CAAC;IACxB,IAAI,CAAC,OAAO,CAAC,WAAW,CAAC;IACzB,IAAI,CAAC,OAAO,CAAC,WAAW,CAAC;IACzB,IAAI,CAAC,OAAO,CAAC,UAAU,CAAC;IACxB,IAAI,CAAC,OAAO,CAAC,WAAW,CAAC;IACzB,IAAI,CAAC,OAAO,CAAC,WAAW,CAAC;IACzB,IAAI,CAAC,OAAO,CAAC,SAAS,CAAC;IACvB,IAAI,CAAC,OAAO,CAAC,YAAY,CAAC;IAC1B,IAAI,CAAC,OAAO,CAAC,QAAQ,CAAC;CACvB,EAAE,EAAE,GAAG,EAAE,cAAc,EAAE,WAAW,EAAE,0BAA0B,EAAE,CAAC,CAAA;AAIpE,uDAAuD;AACvD,MAAM,CAAC,MAAM,UAAU,GAAG,IAAI,CAAC,KAAK,CAAC;IACnC,IAAI,CAAC,OAAO,CAAC,cAAc,CAAC;IAC5B,IAAI,CAAC,OAAO,CAAC,gBAAgB,CAAC;IAC9B,IAAI,CAAC,OAAO,CAAC,aAAa,CAAC;IAC3B,IAAI,CAAC,OAAO,CAAC,YAAY,CAAC;IAC1B,IAAI,CAAC,OAAO,CAAC,cAAc,CAAC;IAC5B,IAAI,CAAC,OAAO,CAAC,eAAe,CAAC;IAC7B,IAAI,CAAC,OAAO,CAAC,uBAAuB,CAAC;IACrC,IAAI,CAAC,OAAO,CAAC,SAAS,CAAC;IACvB,IAAI,CAAC,OAAO,CAAC,SAAS,CAAC;CACxB,EAAE,EAAE,GAAG,EAAE,YAAY,EAAE,WAAW,EAAE,yBAAyB,EAAE,CAAC,CAAA"}
+\ No newline at end of file
++{"version":3,"file":"enums.js","sourceRoot":"","sources":["../../src/agent/enums.ts"],"names":[],"mappings":"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"}
+\ No newline at end of file
+diff --git a/dist/graph/labels.d.ts b/dist/graph/labels.d.ts
+index a5f08ad..f0a28e0 100644
+--- a/dist/graph/labels.d.ts
++++ b/dist/graph/labels.d.ts
+@@ -3,6 +3,6 @@ import { Static } from '@sinclair/typebox';
+  * Canonical Neo4j node labels used across all 3 services.
+  * All labels are PascalCase per convention.
+  */
+-export declare const NodeLabel: import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TLiteral<"ConsultingDomain">, import("@sinclair/typebox").TLiteral<"L1ProcessFlow">, import("@sinclair/typebox").TLiteral<"L2SubProcess">, import("@sinclair/typebox").TLiteral<"Task">, import("@sinclair/typebox").TLiteral<"Engagement">, import("@sinclair/typebox").TLiteral<"Track">, import("@sinclair/typebox").TLiteral<"Insight">, import("@sinclair/typebox").TLiteral<"StrategicInsight">, import("@sinclair/typebox").TLiteral<"Evidence">, import("@sinclair/typebox").TLiteral<"Claim">, import("@sinclair/typebox").TLiteral<"KnowledgePack">, import("@sinclair/typebox").TLiteral<"KnowledgePattern">, import("@sinclair/typebox").TLiteral<"Knowledge">, import("@sinclair/typebox").TLiteral<"MCPTool">, import("@sinclair/typebox").TLiteral<"Tool">, import("@sinclair/typebox").TLiteral<"CodeImplementation">, import("@sinclair/typebox").TLiteral<"Agent">, import("@sinclair/typebox").TLiteral<"AgentProfile">, import("@sinclair/typebox").TLiteral<"Session">, import("@sinclair/typebox").TLiteral<"Decision">, import("@sinclair/typebox").TLiteral<"TDCDocument">, import("@sinclair/typebox").TLiteral<"SystemSnapshot">, import("@sinclair/typebox").TLiteral<"LocalFile">, import("@sinclair/typebox").TLiteral<"Entity">, import("@sinclair/typebox").TLiteral<"ExpansionSignal">, import("@sinclair/typebox").TLiteral<"CVE">, import("@sinclair/typebox").TLiteral<"CyberIntelligence">, import("@sinclair/typebox").TLiteral<"Directive">, import("@sinclair/typebox").TLiteral<"Methodology">, import("@sinclair/typebox").TLiteral<"KPI">, import("@sinclair/typebox").TLiteral<"AIPattern">, import("@sinclair/typebox").TLiteral<"Memory">]>;
++export declare const NodeLabel: import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TLiteral<"ConsultingDomain">, import("@sinclair/typebox").TLiteral<"L1ProcessFlow">, import("@sinclair/typebox").TLiteral<"L2SubProcess">, import("@sinclair/typebox").TLiteral<"Task">, import("@sinclair/typebox").TLiteral<"Engagement">, import("@sinclair/typebox").TLiteral<"Track">, import("@sinclair/typebox").TLiteral<"Insight">, import("@sinclair/typebox").TLiteral<"StrategicInsight">, import("@sinclair/typebox").TLiteral<"Evidence">, import("@sinclair/typebox").TLiteral<"EvidenceBasedInsight">, import("@sinclair/typebox").TLiteral<"Claim">, import("@sinclair/typebox").TLiteral<"KnowledgePack">, import("@sinclair/typebox").TLiteral<"KnowledgePattern">, import("@sinclair/typebox").TLiteral<"KnowledgePacket">, import("@sinclair/typebox").TLiteral<"KnowledgeTransfer">, import("@sinclair/typebox").TLiteral<"KnowledgeRequest">, import("@sinclair/typebox").TLiteral<"Knowledge">, import("@sinclair/typebox").TLiteral<"Lesson">, import("@sinclair/typebox").TLiteral<"MCPTool">, import("@sinclair/typebox").TLiteral<"Tool">, import("@sinclair/typebox").TLiteral<"CodeImplementation">, import("@sinclair/typebox").TLiteral<"Agent">, import("@sinclair/typebox").TLiteral<"AgentProfile">, import("@sinclair/typebox").TLiteral<"AgentPersona">, import("@sinclair/typebox").TLiteral<"AgentMemory">, import("@sinclair/typebox").TLiteral<"AgentChain">, import("@sinclair/typebox").TLiteral<"PersonaTrait">, import("@sinclair/typebox").TLiteral<"Expertise">, import("@sinclair/typebox").TLiteral<"Session">, import("@sinclair/typebox").TLiteral<"Decision">, import("@sinclair/typebox").TLiteral<"BootEvent">, import("@sinclair/typebox").TLiteral<"TDCDocument">, import("@sinclair/typebox").TLiteral<"SystemSnapshot">, import("@sinclair/typebox").TLiteral<"LocalFile">, import("@sinclair/typebox").TLiteral<"Entity">, import("@sinclair/typebox").TLiteral<"ExpansionSignal">, import("@sinclair/typebox").TLiteral<"CVE">, import("@sinclair/typebox").TLiteral<"CyberIntelligence">, import("@sinclair/typebox").TLiteral<"Directive">, import("@sinclair/typebox").TLiteral<"Methodology">, import("@sinclair/typebox").TLiteral<"KPI">, import("@sinclair/typebox").TLiteral<"AIPattern">, import("@sinclair/typebox").TLiteral<"Memory">, import("@sinclair/typebox").TLiteral<"ContextFold">, import("@sinclair/typebox").TLiteral<"ContextFoldEvent">, import("@sinclair/typebox").TLiteral<"RoutingDecisionEvent">, import("@sinclair/typebox").TLiteral<"LearningEvent">, import("@sinclair/typebox").TLiteral<"HealthChangeEvent">, import("@sinclair/typebox").TLiteral<"QualityScoreEvent">, import("@sinclair/typebox").TLiteral<"QLearningEvent">, import("@sinclair/typebox").TLiteral<"MetaLearningEvent">, import("@sinclair/typebox").TLiteral<"MemoryPersistEvent">, import("@sinclair/typebox").TLiteral<"AttentionFoldEvent">, import("@sinclair/typebox").TLiteral<"CircuitBreakerEvent">, import("@sinclair/typebox").TLiteral<"SSEConnectionEvent">, import("@sinclair/typebox").TLiteral<"ErrorEvent">, import("@sinclair/typebox").TLiteral<"Project">, import("@sinclair/typebox").TLiteral<"KanbanTask">, import("@sinclair/typebox").TLiteral<"AgentMessage">]>;
+ export type NodeLabel = Static<typeof NodeLabel>;
+ //# sourceMappingURL=labels.d.ts.map
+\ No newline at end of file
+diff --git a/dist/graph/labels.d.ts.map b/dist/graph/labels.d.ts.map
+index efd3637..aeaaf89 100644
+--- a/dist/graph/labels.d.ts.map
++++ b/dist/graph/labels.d.ts.map
+@@ -1 +1 @@
+-{"version":3,"file":"labels.d.ts","sourceRoot":"","sources":["../../src/graph/labels.ts"],"names":[],"mappings":"AAAA,OAAO,EAAQ,MAAM,EAAE,MAAM,mBAAmB,CAAA;AAEhD;;;GAGG;AACH,eAAO,MAAM,SAAS,0pDA0C8C,CAAA;AAEpE,MAAM,MAAM,SAAS,GAAG,MAAM,CAAC,OAAO,SAAS,CAAC,CAAA"}
+\ No newline at end of file
++{"version":3,"file":"labels.d.ts","sourceRoot":"","sources":["../../src/graph/labels.ts"],"names":[],"mappings":"AAAA,OAAO,EAAQ,MAAM,EAAE,MAAM,mBAAmB,CAAA;AAEhD;;;GAGG;AACH,eAAO,MAAM,SAAS,8nGAwE8C,CAAA;AAEpE,MAAM,MAAM,SAAS,GAAG,MAAM,CAAC,OAAO,SAAS,CAAC,CAAA"}
+\ No newline at end of file
+diff --git a/dist/graph/labels.js b/dist/graph/labels.js
+index e46001d..d62115f 100644
+--- a/dist/graph/labels.js
++++ b/dist/graph/labels.js
+@@ -16,10 +16,15 @@ export const NodeLabel = Type.Union([
+     Type.Literal('Insight'),
+     Type.Literal('StrategicInsight'),
+     Type.Literal('Evidence'),
++    Type.Literal('EvidenceBasedInsight'),
+     Type.Literal('Claim'),
+     Type.Literal('KnowledgePack'),
+     Type.Literal('KnowledgePattern'),
++    Type.Literal('KnowledgePacket'),
++    Type.Literal('KnowledgeTransfer'),
++    Type.Literal('KnowledgeRequest'),
+     Type.Literal('Knowledge'),
++    Type.Literal('Lesson'),
+     // Tools
+     Type.Literal('MCPTool'),
+     Type.Literal('Tool'),
+@@ -27,8 +32,14 @@ export const NodeLabel = Type.Union([
+     // Agents & self-model
+     Type.Literal('Agent'),
+     Type.Literal('AgentProfile'),
++    Type.Literal('AgentPersona'),
++    Type.Literal('AgentMemory'),
++    Type.Literal('AgentChain'),
++    Type.Literal('PersonaTrait'),
++    Type.Literal('Expertise'),
+     Type.Literal('Session'),
+     Type.Literal('Decision'),
++    Type.Literal('BootEvent'),
+     // Data governance
+     Type.Literal('TDCDocument'),
+     Type.Literal('SystemSnapshot'),
+@@ -43,7 +54,26 @@ export const NodeLabel = Type.Union([
+     Type.Literal('Methodology'),
+     Type.Literal('KPI'),
+     Type.Literal('AIPattern'),
+-    // Memory
++    // Memory & context
+     Type.Literal('Memory'),
++    Type.Literal('ContextFold'),
++    // RLM Intelligence Events
++    Type.Literal('ContextFoldEvent'),
++    Type.Literal('RoutingDecisionEvent'),
++    Type.Literal('LearningEvent'),
++    Type.Literal('HealthChangeEvent'),
++    Type.Literal('QualityScoreEvent'),
++    Type.Literal('QLearningEvent'),
++    Type.Literal('MetaLearningEvent'),
++    Type.Literal('MemoryPersistEvent'),
++    Type.Literal('AttentionFoldEvent'),
++    Type.Literal('CircuitBreakerEvent'),
++    Type.Literal('SSEConnectionEvent'),
++    Type.Literal('ErrorEvent'),
++    // Project management
++    Type.Literal('Project'),
++    Type.Literal('KanbanTask'),
++    // Messaging
++    Type.Literal('AgentMessage'),
+ ], { $id: 'NodeLabel', description: 'Canonical Neo4j node labels' });
+ //# sourceMappingURL=labels.js.map
+\ No newline at end of file
+diff --git a/dist/graph/labels.js.map b/dist/graph/labels.js.map
+index c285c0c..5b9153a 100644
+--- a/dist/graph/labels.js.map
++++ b/dist/graph/labels.js.map
+@@ -1 +1 @@
+-{"version":3,"file":"labels.js","sourceRoot":"","sources":["../../src/graph/labels.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,IAAI,EAAU,MAAM,mBAAmB,CAAA;AAEhD;;;GAGG;AACH,MAAM,CAAC,MAAM,SAAS,GAAG,IAAI,CAAC,KAAK,CAAC;IAClC,sBAAsB;IACtB,IAAI,CAAC,OAAO,CAAC,kBAAkB,CAAC;IAChC,IAAI,CAAC,OAAO,CAAC,eAAe,CAAC;IAC7B,IAAI,CAAC,OAAO,CAAC,cAAc,CAAC;IAC5B,IAAI,CAAC,OAAO,CAAC,MAAM,CAAC;IACpB,aAAa;IACb,IAAI,CAAC,OAAO,CAAC,YAAY,CAAC;IAC1B,IAAI,CAAC,OAAO,CAAC,OAAO,CAAC;IACrB,uBAAuB;IACvB,IAAI,CAAC,OAAO,CAAC,SAAS,CAAC;IACvB,IAAI,CAAC,OAAO,CAAC,kBAAkB,CAAC;IAChC,IAAI,CAAC,OAAO,CAAC,UAAU,CAAC;IACxB,IAAI,CAAC,OAAO,CAAC,OAAO,CAAC;IACrB,IAAI,CAAC,OAAO,CAAC,eAAe,CAAC;IAC7B,IAAI,CAAC,OAAO,CAAC,kBAAkB,CAAC;IAChC,IAAI,CAAC,OAAO,CAAC,WAAW,CAAC;IACzB,QAAQ;IACR,IAAI,CAAC,OAAO,CAAC,SAAS,CAAC;IACvB,IAAI,CAAC,OAAO,CAAC,MAAM,CAAC;IACpB,IAAI,CAAC,OAAO,CAAC,oBAAoB,CAAC;IAClC,sBAAsB;IACtB,IAAI,CAAC,OAAO,CAAC,OAAO,CAAC;IACrB,IAAI,CAAC,OAAO,CAAC,cAAc,CAAC;IAC5B,IAAI,CAAC,OAAO,CAAC,SAAS,CAAC;IACvB,IAAI,CAAC,OAAO,CAAC,UAAU,CAAC;IACxB,kBAAkB;IAClB,IAAI,CAAC,OAAO,CAAC,aAAa,CAAC;IAC3B,IAAI,CAAC,OAAO,CAAC,gBAAgB,CAAC;IAC9B,IAAI,CAAC,OAAO,CAAC,WAAW,CAAC;IACzB,IAAI,CAAC,OAAO,CAAC,QAAQ,CAAC;IACtB,IAAI,CAAC,OAAO,CAAC,iBAAiB,CAAC;IAC/B,0BAA0B;IAC1B,IAAI,CAAC,OAAO,CAAC,KAAK,CAAC;IACnB,IAAI,CAAC,OAAO,CAAC,mBAAmB,CAAC;IACjC,IAAI,CAAC,OAAO,CAAC,WAAW,CAAC;IACzB,wBAAwB;IACxB,IAAI,CAAC,OAAO,CAAC,aAAa,CAAC;IAC3B,IAAI,CAAC,OAAO,CAAC,KAAK,CAAC;IACnB,IAAI,CAAC,OAAO,CAAC,WAAW,CAAC;IACzB,SAAS;IACT,IAAI,CAAC,OAAO,CAAC,QAAQ,CAAC;CACvB,EAAE,EAAE,GAAG,EAAE,WAAW,EAAE,WAAW,EAAE,6BAA6B,EAAE,CAAC,CAAA"}
+\ No newline at end of file
++{"version":3,"file":"labels.js","sourceRoot":"","sources":["../../src/graph/labels.ts"],"names":[],"mappings":"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"}
+\ No newline at end of file
+diff --git a/dist/graph/relationships.d.ts b/dist/graph/relationships.d.ts
+index 160264d..a924458 100644
+--- a/dist/graph/relationships.d.ts
++++ b/dist/graph/relationships.d.ts
+@@ -3,6 +3,6 @@ import { Static } from '@sinclair/typebox';
+  * Canonical Neo4j relationship types used across all 3 services.
+  * All types are UPPER_SNAKE per convention.
+  */
+-export declare const RelationshipType: import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TLiteral<"BELONGS_TO_DOMAIN">, import("@sinclair/typebox").TLiteral<"HAS_SUBPROCESS">, import("@sinclair/typebox").TLiteral<"HAS_TASK">, import("@sinclair/typebox").TLiteral<"PARENT_PROCESS">, import("@sinclair/typebox").TLiteral<"USES_PROCESS">, import("@sinclair/typebox").TLiteral<"HAS_TRACK">, import("@sinclair/typebox").TLiteral<"ASSIGNED_TO">, import("@sinclair/typebox").TLiteral<"IMPLEMENTS">, import("@sinclair/typebox").TLiteral<"USES_METHODOLOGY">, import("@sinclair/typebox").TLiteral<"MEASURES">, import("@sinclair/typebox").TLiteral<"EVALUATES">, import("@sinclair/typebox").TLiteral<"HAS_CRITERION">, import("@sinclair/typebox").TLiteral<"HAS_CAPABILITY">, import("@sinclair/typebox").TLiteral<"USES_TOOL">, import("@sinclair/typebox").TLiteral<"USES_FRAMEWORK">, import("@sinclair/typebox").TLiteral<"CODE_FOR">, import("@sinclair/typebox").TLiteral<"CONTAINS_PATTERN">, import("@sinclair/typebox").TLiteral<"SUPPORTED_BY">, import("@sinclair/typebox").TLiteral<"CITES">, import("@sinclair/typebox").TLiteral<"IN_DOMAIN">, import("@sinclair/typebox").TLiteral<"RELATES_TO">, import("@sinclair/typebox").TLiteral<"IS_A">, import("@sinclair/typebox").TLiteral<"RUNS">, import("@sinclair/typebox").TLiteral<"MADE_DECISION">, import("@sinclair/typebox").TLiteral<"HAS_CONTENT">, import("@sinclair/typebox").TLiteral<"SIMILAR_TO">, import("@sinclair/typebox").TLiteral<"DUPLICATE_OF">, import("@sinclair/typebox").TLiteral<"HAS_EXPANSION_SIGNAL">, import("@sinclair/typebox").TLiteral<"DETECTED_AT">]>;
++export declare const RelationshipType: import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TLiteral<"BELONGS_TO_DOMAIN">, import("@sinclair/typebox").TLiteral<"HAS_SUBPROCESS">, import("@sinclair/typebox").TLiteral<"HAS_TASK">, import("@sinclair/typebox").TLiteral<"PARENT_PROCESS">, import("@sinclair/typebox").TLiteral<"USES_PROCESS">, import("@sinclair/typebox").TLiteral<"HAS_TRACK">, import("@sinclair/typebox").TLiteral<"ASSIGNED_TO">, import("@sinclair/typebox").TLiteral<"IMPLEMENTS">, import("@sinclair/typebox").TLiteral<"USES_METHODOLOGY">, import("@sinclair/typebox").TLiteral<"MEASURES">, import("@sinclair/typebox").TLiteral<"EVALUATES">, import("@sinclair/typebox").TLiteral<"HAS_CRITERION">, import("@sinclair/typebox").TLiteral<"HAS_CAPABILITY">, import("@sinclair/typebox").TLiteral<"USES_TOOL">, import("@sinclair/typebox").TLiteral<"USES_FRAMEWORK">, import("@sinclair/typebox").TLiteral<"CODE_FOR">, import("@sinclair/typebox").TLiteral<"CONTAINS_PATTERN">, import("@sinclair/typebox").TLiteral<"SUPPORTED_BY">, import("@sinclair/typebox").TLiteral<"CITES">, import("@sinclair/typebox").TLiteral<"IN_DOMAIN">, import("@sinclair/typebox").TLiteral<"RELATES_TO">, import("@sinclair/typebox").TLiteral<"IS_A">, import("@sinclair/typebox").TLiteral<"RUNS">, import("@sinclair/typebox").TLiteral<"MADE_DECISION">, import("@sinclair/typebox").TLiteral<"HAS_CONTENT">, import("@sinclair/typebox").TLiteral<"HAS_TRAIT">, import("@sinclair/typebox").TLiteral<"HAS_EXPERTISE">, import("@sinclair/typebox").TLiteral<"HAS_PERSONA">, import("@sinclair/typebox").TLiteral<"TRANSFERRED_TO">, import("@sinclair/typebox").TLiteral<"CONSOLIDATED_TO">, import("@sinclair/typebox").TLiteral<"LEARNED_FROM">, import("@sinclair/typebox").TLiteral<"SIMILAR_TO">, import("@sinclair/typebox").TLiteral<"DUPLICATE_OF">, import("@sinclair/typebox").TLiteral<"HAS_EXPANSION_SIGNAL">, import("@sinclair/typebox").TLiteral<"DETECTED_AT">, import("@sinclair/typebox").TLiteral<"OWNS_PROJECT">, import("@sinclair/typebox").TLiteral<"HAS_KANBAN_TASK">, import("@sinclair/typebox").TLiteral<"SENT_MESSAGE">, import("@sinclair/typebox").TLiteral<"RECEIVED_MESSAGE">]>;
+ export type RelationshipType = Static<typeof RelationshipType>;
+ //# sourceMappingURL=relationships.d.ts.map
+\ No newline at end of file
+diff --git a/dist/graph/relationships.d.ts.map b/dist/graph/relationships.d.ts.map
+index d300578..e65b901 100644
+--- a/dist/graph/relationships.d.ts.map
++++ b/dist/graph/relationships.d.ts.map
+@@ -1 +1 @@
+-{"version":3,"file":"relationships.d.ts","sourceRoot":"","sources":["../../src/graph/relationships.ts"],"names":[],"mappings":"AAAA,OAAO,EAAQ,MAAM,EAAE,MAAM,mBAAmB,CAAA;AAEhD;;;GAGG;AACH,eAAO,MAAM,gBAAgB,2iDAsCqD,CAAA;AAElF,MAAM,MAAM,gBAAgB,GAAG,MAAM,CAAC,OAAO,gBAAgB,CAAC,CAAA"}
+\ No newline at end of file
++{"version":3,"file":"relationships.d.ts","sourceRoot":"","sources":["../../src/graph/relationships.ts"],"names":[],"mappings":"AAAA,OAAO,EAAQ,MAAM,EAAE,MAAM,mBAAmB,CAAA;AAEhD;;;GAGG;AACH,eAAO,MAAM,gBAAgB,glEAmDqD,CAAA;AAElF,MAAM,MAAM,gBAAgB,GAAG,MAAM,CAAC,OAAO,gBAAgB,CAAC,CAAA"}
+\ No newline at end of file
+diff --git a/dist/graph/relationships.js b/dist/graph/relationships.js
+index f0a61df..2882b8a 100644
+--- a/dist/graph/relationships.js
++++ b/dist/graph/relationships.js
+@@ -35,11 +35,24 @@ export const RelationshipType = Type.Union([
+     Type.Literal('RUNS'),
+     Type.Literal('MADE_DECISION'),
+     Type.Literal('HAS_CONTENT'),
++    Type.Literal('HAS_TRAIT'),
++    Type.Literal('HAS_EXPERTISE'),
++    Type.Literal('HAS_PERSONA'),
++    // Knowledge transfer
++    Type.Literal('TRANSFERRED_TO'),
++    Type.Literal('CONSOLIDATED_TO'),
++    Type.Literal('LEARNED_FROM'),
+     // Data quality
+     Type.Literal('SIMILAR_TO'),
+     Type.Literal('DUPLICATE_OF'),
+     // Expansion
+     Type.Literal('HAS_EXPANSION_SIGNAL'),
+     Type.Literal('DETECTED_AT'),
++    // Project management
++    Type.Literal('OWNS_PROJECT'),
++    Type.Literal('HAS_KANBAN_TASK'),
++    // Messaging
++    Type.Literal('SENT_MESSAGE'),
++    Type.Literal('RECEIVED_MESSAGE'),
+ ], { $id: 'RelationshipType', description: 'Canonical Neo4j relationship types' });
+ //# sourceMappingURL=relationships.js.map
+\ No newline at end of file
+diff --git a/dist/graph/relationships.js.map b/dist/graph/relationships.js.map
+index 11ba04e..3f769db 100644
+--- a/dist/graph/relationships.js.map
++++ b/dist/graph/relationships.js.map
+@@ -1 +1 @@
+-{"version":3,"file":"relationships.js","sourceRoot":"","sources":["../../src/graph/relationships.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,IAAI,EAAU,MAAM,mBAAmB,CAAA;AAEhD;;;GAGG;AACH,MAAM,CAAC,MAAM,gBAAgB,GAAG,IAAI,CAAC,KAAK,CAAC;IACzC,wBAAwB;IACxB,IAAI,CAAC,OAAO,CAAC,mBAAmB,CAAC;IACjC,IAAI,CAAC,OAAO,CAAC,gBAAgB,CAAC;IAC9B,IAAI,CAAC,OAAO,CAAC,UAAU,CAAC;IACxB,IAAI,CAAC,OAAO,CAAC,gBAAgB,CAAC;IAC9B,aAAa;IACb,IAAI,CAAC,OAAO,CAAC,cAAc,CAAC;IAC5B,IAAI,CAAC,OAAO,CAAC,WAAW,CAAC;IACzB,IAAI,CAAC,OAAO,CAAC,aAAa,CAAC;IAC3B,IAAI,CAAC,OAAO,CAAC,YAAY,CAAC;IAC1B,wBAAwB;IACxB,IAAI,CAAC,OAAO,CAAC,kBAAkB,CAAC;IAChC,IAAI,CAAC,OAAO,CAAC,UAAU,CAAC;IACxB,IAAI,CAAC,OAAO,CAAC,WAAW,CAAC;IACzB,IAAI,CAAC,OAAO,CAAC,eAAe,CAAC;IAC7B,sBAAsB;IACtB,IAAI,CAAC,OAAO,CAAC,gBAAgB,CAAC;IAC9B,IAAI,CAAC,OAAO,CAAC,WAAW,CAAC;IACzB,IAAI,CAAC,OAAO,CAAC,gBAAgB,CAAC;IAC9B,IAAI,CAAC,OAAO,CAAC,UAAU,CAAC;IACxB,uBAAuB;IACvB,IAAI,CAAC,OAAO,CAAC,kBAAkB,CAAC;IAChC,IAAI,CAAC,OAAO,CAAC,cAAc,CAAC;IAC5B,IAAI,CAAC,OAAO,CAAC,OAAO,CAAC;IACrB,IAAI,CAAC,OAAO,CAAC,WAAW,CAAC;IACzB,IAAI,CAAC,OAAO,CAAC,YAAY,CAAC;IAC1B,IAAI,CAAC,OAAO,CAAC,MAAM,CAAC;IACpB,sBAAsB;IACtB,IAAI,CAAC,OAAO,CAAC,MAAM,CAAC;IACpB,IAAI,CAAC,OAAO,CAAC,eAAe,CAAC;IAC7B,IAAI,CAAC,OAAO,CAAC,aAAa,CAAC;IAC3B,eAAe;IACf,IAAI,CAAC,OAAO,CAAC,YAAY,CAAC;IAC1B,IAAI,CAAC,OAAO,CAAC,cAAc,CAAC;IAC5B,YAAY;IACZ,IAAI,CAAC,OAAO,CAAC,sBAAsB,CAAC;IACpC,IAAI,CAAC,OAAO,CAAC,aAAa,CAAC;CAC5B,EAAE,EAAE,GAAG,EAAE,kBAAkB,EAAE,WAAW,EAAE,oCAAoC,EAAE,CAAC,CAAA"}
+\ No newline at end of file
++{"version":3,"file":"relationships.js","sourceRoot":"","sources":["../../src/graph/relationships.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,IAAI,EAAU,MAAM,mBAAmB,CAAA;AAEhD;;;GAGG;AACH,MAAM,CAAC,MAAM,gBAAgB,GAAG,IAAI,CAAC,KAAK,CAAC;IACzC,wBAAwB;IACxB,IAAI,CAAC,OAAO,CAAC,mBAAmB,CAAC;IACjC,IAAI,CAAC,OAAO,CAAC,gBAAgB,CAAC;IAC9B,IAAI,CAAC,OAAO,CAAC,UAAU,CAAC;IACxB,IAAI,CAAC,OAAO,CAAC,gBAAgB,CAAC;IAC9B,aAAa;IACb,IAAI,CAAC,OAAO,CAAC,cAAc,CAAC;IAC5B,IAAI,CAAC,OAAO,CAAC,WAAW,CAAC;IACzB,IAAI,CAAC,OAAO,CAAC,aAAa,CAAC;IAC3B,IAAI,CAAC,OAAO,CAAC,YAAY,CAAC;IAC1B,wBAAwB;IACxB,IAAI,CAAC,OAAO,CAAC,kBAAkB,CAAC;IAChC,IAAI,CAAC,OAAO,CAAC,UAAU,CAAC;IACxB,IAAI,CAAC,OAAO,CAAC,WAAW,CAAC;IACzB,IAAI,CAAC,OAAO,CAAC,eAAe,CAAC;IAC7B,sBAAsB;IACtB,IAAI,CAAC,OAAO,CAAC,gBAAgB,CAAC;IAC9B,IAAI,CAAC,OAAO,CAAC,WAAW,CAAC;IACzB,IAAI,CAAC,OAAO,CAAC,gBAAgB,CAAC;IAC9B,IAAI,CAAC,OAAO,CAAC,UAAU,CAAC;IACxB,uBAAuB;IACvB,IAAI,CAAC,OAAO,CAAC,kBAAkB,CAAC;IAChC,IAAI,CAAC,OAAO,CAAC,cAAc,CAAC;IAC5B,IAAI,CAAC,OAAO,CAAC,OAAO,CAAC;IACrB,IAAI,CAAC,OAAO,CAAC,WAAW,CAAC;IACzB,IAAI,CAAC,OAAO,CAAC,YAAY,CAAC;IAC1B,IAAI,CAAC,OAAO,CAAC,MAAM,CAAC;IACpB,sBAAsB;IACtB,IAAI,CAAC,OAAO,CAAC,MAAM,CAAC;IACpB,IAAI,CAAC,OAAO,CAAC,eAAe,CAAC;IAC7B,IAAI,CAAC,OAAO,CAAC,aAAa,CAAC;IAC3B,IAAI,CAAC,OAAO,CAAC,WAAW,CAAC;IACzB,IAAI,CAAC,OAAO,CAAC,eAAe,CAAC;IAC7B,IAAI,CAAC,OAAO,CAAC,aAAa,CAAC;IAC3B,qBAAqB;IACrB,IAAI,CAAC,OAAO,CAAC,gBAAgB,CAAC;IAC9B,IAAI,CAAC,OAAO,CAAC,iBAAiB,CAAC;IAC/B,IAAI,CAAC,OAAO,CAAC,cAAc,CAAC;IAC5B,eAAe;IACf,IAAI,CAAC,OAAO,CAAC,YAAY,CAAC;IAC1B,IAAI,CAAC,OAAO,CAAC,cAAc,CAAC;IAC5B,YAAY;IACZ,IAAI,CAAC,OAAO,CAAC,sBAAsB,CAAC;IACpC,IAAI,CAAC,OAAO,CAAC,aAAa,CAAC;IAC3B,qBAAqB;IACrB,IAAI,CAAC,OAAO,CAAC,cAAc,CAAC;IAC5B,IAAI,CAAC,OAAO,CAAC,iBAAiB,CAAC;IAC/B,YAAY;IACZ,IAAI,CAAC,OAAO,CAAC,cAAc,CAAC;IAC5B,IAAI,CAAC,OAAO,CAAC,kBAAkB,CAAC;CACjC,EAAE,EAAE,GAAG,EAAE,kBAAkB,EAAE,WAAW,EAAE,oCAAoC,EAAE,CAAC,CAAA"}
+\ No newline at end of file
+diff --git a/python/widgetdc_contracts/agent.py b/python/widgetdc_contracts/agent.py
+index 6b15b9b..a6b316e 100644
+--- a/python/widgetdc_contracts/agent.py
++++ b/python/widgetdc_contracts/agent.py
+@@ -9,7 +9,7 @@ from __future__ import annotations
+ from pydantic import Field, RootModel
+ from typing import Literal
+ 
+-__all__ = ["AgentPersona", "AgentTier", "SignalType"]
++__all__ = ["AgentPersona", "AgentTier", "KnowledgePacketType", "MemoryTier", "OpenClawAgentId", "SignalType"]
+ 
+ class AgentPersona(
+     RootModel[
+@@ -24,6 +24,16 @@ class AgentPersona(
+             'ANALYST',
+             'INTEGRATOR',
+             'TESTER',
++            'MAIN',
++            'ORCHESTRATOR',
++            'DEVELOPER',
++            'WRITER',
++            'DATA_SCIENTIST',
++            'SECURITY',
++            'DEVOPS',
++            'QA',
++            'UX',
++            'PM',
+         ]
+     ]
+ ):
+@@ -38,7 +48,17 @@ class AgentPersona(
+         'ANALYST',
+         'INTEGRATOR',
+         'TESTER',
+-    ] = Field(..., description='RLM Engine agent persona')
++        'MAIN',
++        'ORCHESTRATOR',
++        'DEVELOPER',
++        'WRITER',
++        'DATA_SCIENTIST',
++        'SECURITY',
++        'DEVOPS',
++        'QA',
++        'UX',
++        'PM',
++    ] = Field(..., description='RLM Engine and OpenClaw agent persona')
+ 
+ class AgentTier(
+     RootModel[Literal['ANALYST', 'ASSOCIATE', 'MANAGER', 'PARTNER', 'ARCHITECT']]
+@@ -47,6 +67,51 @@ class AgentTier(
+         ..., description='Consulting agent tier (ascending autonomy)'
+     )
+ 
++class KnowledgePacketType(
++    RootModel[Literal['insight', 'lesson', 'fact', 'procedure', 'warning']]
++):
++    root: Literal['insight', 'lesson', 'fact', 'procedure', 'warning'] = Field(
++        ..., description='Knowledge transfer packet type'
++    )
++
++class MemoryTier(RootModel[Literal['core', 'working', 'archival']]):
++    root: Literal['core', 'working', 'archival'] = Field(
++        ..., description='Hierarchical memory tier'
++    )
++
++class OpenClawAgentId(
++    RootModel[
++        Literal[
++            'main',
++            'orchestrator',
++            'developer',
++            'writer',
++            'analyst',
++            'researcher',
++            'security',
++            'data',
++            'devops',
++            'qa',
++            'ux',
++            'pm',
++        ]
++    ]
++):
++    root: Literal[
++        'main',
++        'orchestrator',
++        'developer',
++        'writer',
++        'analyst',
++        'researcher',
++        'security',
++        'data',
++        'devops',
++        'qa',
++        'ux',
++        'pm',
++    ] = Field(..., description='OpenClaw agent identifier for skills routing')
++
+ class SignalType(
+     RootModel[
+         Literal[
+@@ -59,6 +124,10 @@ class SignalType(
+             'deliverable_generated',
+             'insight',
+             'warning',
++            'chain_started',
++            'chain_step_completed',
++            'chain_completed',
++            'chain_failed',
+         ]
+     ]
+ ):
+@@ -72,5 +141,9 @@ class SignalType(
+         'deliverable_generated',
+         'insight',
+         'warning',
++        'chain_started',
++        'chain_step_completed',
++        'chain_completed',
++        'chain_failed',
+     ] = Field(..., description='Agent signal event type')
+ 
+diff --git a/python/widgetdc_contracts/graph.py b/python/widgetdc_contracts/graph.py
+index 421a575..b0167e0 100644
+--- a/python/widgetdc_contracts/graph.py
++++ b/python/widgetdc_contracts/graph.py
+@@ -23,17 +23,28 @@ class NodeLabel(
+             'Insight',
+             'StrategicInsight',
+             'Evidence',
++            'EvidenceBasedInsight',
+             'Claim',
+             'KnowledgePack',
+             'KnowledgePattern',
++            'KnowledgePacket',
++            'KnowledgeTransfer',
++            'KnowledgeRequest',
+             'Knowledge',
++            'Lesson',
+             'MCPTool',
+             'Tool',
+             'CodeImplementation',
+             'Agent',
+             'AgentProfile',
++            'AgentPersona',
++            'AgentMemory',
++            'AgentChain',
++            'PersonaTrait',
++            'Expertise',
+             'Session',
+             'Decision',
++            'BootEvent',
+             'TDCDocument',
+             'SystemSnapshot',
+             'LocalFile',
+@@ -46,6 +57,22 @@ class NodeLabel(
+             'KPI',
+             'AIPattern',
+             'Memory',
++            'ContextFold',
++            'ContextFoldEvent',
++            'RoutingDecisionEvent',
++            'LearningEvent',
++            'HealthChangeEvent',
++            'QualityScoreEvent',
++            'QLearningEvent',
++            'MetaLearningEvent',
++            'MemoryPersistEvent',
++            'AttentionFoldEvent',
++            'CircuitBreakerEvent',
++            'SSEConnectionEvent',
++            'ErrorEvent',
++            'Project',
++            'KanbanTask',
++            'AgentMessage',
+         ]
+     ]
+ ):
+@@ -59,30 +86,31 @@ class NodeLabel(
+         'Insight',
+         'StrategicInsight',
+         'Evidence',
++        'EvidenceBasedInsight',
+         'Claim',
+         'KnowledgePack',
+         'KnowledgePattern',
++        'KnowledgePacket',
++        'KnowledgeTransfer',
++        'KnowledgeRequest',
+         'Knowledge',
++        'Lesson',
+         'MCPTool',
+         'Tool',
+         'CodeImplementation',
+         'Agent',
+         'AgentProfile',
++        'AgentPersona',
++        'AgentMemory',
++        'AgentChain',
++        'PersonaTrait',
++        'Expertise',
+         'Session',
+         'Decision',
++        'BootEvent',
+         'TDCDocument',
+         'SystemSnapshot',
+         'LocalFile',
+-        'Entity',
+-        'ExpansionSignal',
+-        'CVE',
+-        'CyberIntelligence',
+-        'Directive',
+-        'Methodology',
+-        'KPI',
+-        'AIPattern',
+-        'Memory',
+-    ] = Field(..., description='Canonical Neo4j node labels')
+ 
+ class RelationshipType(
+     RootModel[
+@@ -112,10 +140,20 @@ class RelationshipType(
+             'RUNS',
+             'MADE_DECISION',
+             'HAS_CONTENT',
++            'HAS_TRAIT',
++            'HAS_EXPERTISE',
++            'HAS_PERSONA',
++            'TRANSFERRED_TO',
++            'CONSOLIDATED_TO',
++            'LEARNED_FROM',
+             'SIMILAR_TO',
+             'DUPLICATE_OF',
+             'HAS_EXPANSION_SIGNAL',
+             'DETECTED_AT',
++            'OWNS_PROJECT',
++            'HAS_KANBAN_TASK',
++            'SENT_MESSAGE',
++            'RECEIVED_MESSAGE',
+         ]
+     ]
+ ):
+@@ -145,9 +183,19 @@ class RelationshipType(
+         'RUNS',
+         'MADE_DECISION',
+         'HAS_CONTENT',
++        'HAS_TRAIT',
++        'HAS_EXPERTISE',
++        'HAS_PERSONA',
++        'TRANSFERRED_TO',
++        'CONSOLIDATED_TO',
++        'LEARNED_FROM',
+         'SIMILAR_TO',
+         'DUPLICATE_OF',
+         'HAS_EXPANSION_SIGNAL',
+         'DETECTED_AT',
++        'OWNS_PROJECT',
++        'HAS_KANBAN_TASK',
++        'SENT_MESSAGE',
++        'RECEIVED_MESSAGE',
+     ] = Field(..., description='Canonical Neo4j relationship types')
+ 
+diff --git a/python/widgetdc_contracts/http_.py b/python/widgetdc_contracts/http_.py
+index 6f010b1..e7ce925 100644
+--- a/python/widgetdc_contracts/http_.py
++++ b/python/widgetdc_contracts/http_.py
+@@ -15,22 +15,7 @@ from typing import Any
+ from typing import Any, Literal
+ from typing import Literal
+ 
+-__all__ = ["ApiError", "ApiErrorCode", "ApiResponse", "PaginatedResponse", "ResponseMetadata"]
+-
+-class ApiError(BaseModel):
+-    code: Literal[
+-        'VALIDATION_ERROR',
+-        'AUTH_ERROR',
+-        'NOT_FOUND',
+-        'RATE_LIMIT',
+-        'INTERNAL_ERROR',
+-        'TIMEOUT',
+-        'SERVICE_UNAVAILABLE',
+-    ]
+-    message: str
+-    status_code: int = Field(..., ge=400, le=599)
+-    details: dict[constr(pattern=r'^(.*)$'), Any] | None = None
+-    correlation_id: str | None = None
++__all__ = ["ApiErrorCode", "ApiError", "ApiResponse", "PaginatedResponse", "ResponseMetadata"]
+ 
+ class ApiErrorCode(
+     RootModel[
+@@ -55,6 +40,21 @@ class ApiErrorCode(
+         'SERVICE_UNAVAILABLE',
+     ]
+ 
++class ApiError(BaseModel):
++    code: Literal[
++        'VALIDATION_ERROR',
++        'AUTH_ERROR',
++        'NOT_FOUND',
++        'RATE_LIMIT',
++        'INTERNAL_ERROR',
++        'TIMEOUT',
++        'SERVICE_UNAVAILABLE',
++    ]
++    message: str
++    status_code: int = Field(..., ge=400, le=599)
++    details: dict[constr(pattern=r'^(.*)$'), Any] | None = None
++    correlation_id: str | None = None
++
+ class Error(BaseModel):
+     code: Literal[
+         'VALIDATION_ERROR',
+diff --git a/schemas/agent/AgentPersona.json b/schemas/agent/AgentPersona.json
+index d9200d6..10e599a 100644
+--- a/schemas/agent/AgentPersona.json
++++ b/schemas/agent/AgentPersona.json
+@@ -1,6 +1,6 @@
+ {
+   "$id": "AgentPersona",
+-  "description": "RLM Engine agent persona",
++  "description": "RLM Engine and OpenClaw agent persona",
+   "anyOf": [
+     {
+       "const": "RESEARCHER",
+@@ -41,6 +41,46 @@
+     {
+       "const": "TESTER",
+       "type": "string"
++    },
++    {
++      "const": "MAIN",
++      "type": "string"
++    },
++    {
++      "const": "ORCHESTRATOR",
++      "type": "string"
++    },
++    {
++      "const": "DEVELOPER",
++      "type": "string"
++    },
++    {
++      "const": "WRITER",
++      "type": "string"
++    },
++    {
++      "const": "DATA_SCIENTIST",
++      "type": "string"
++    },
++    {
++      "const": "SECURITY",
++      "type": "string"
++    },
++    {
++      "const": "DEVOPS",
++      "type": "string"
++    },
++    {
++      "const": "QA",
++      "type": "string"
++    },
++    {
++      "const": "UX",
++      "type": "string"
++    },
++    {
++      "const": "PM",
++      "type": "string"
+     }
+   ]
+ }
+diff --git a/schemas/agent/KnowledgePacketType.json b/schemas/agent/KnowledgePacketType.json
+new file mode 100644
+index 0000000..57aded5
+--- /dev/null
++++ b/schemas/agent/KnowledgePacketType.json
+@@ -0,0 +1,26 @@
++{
++  "$id": "KnowledgePacketType",
++  "description": "Knowledge transfer packet type",
++  "anyOf": [
++    {
++      "const": "insight",
++      "type": "string"
++    },
++    {
++      "const": "lesson",
++      "type": "string"
++    },
++    {
++      "const": "fact",
++      "type": "string"
++    },
++    {
++      "const": "procedure",
++      "type": "string"
++    },
++    {
++      "const": "warning",
++      "type": "string"
++    }
++  ]
++}
+diff --git a/schemas/agent/MemoryTier.json b/schemas/agent/MemoryTier.json
+new file mode 100644
+index 0000000..71e33f4
+--- /dev/null
++++ b/schemas/agent/MemoryTier.json
+@@ -0,0 +1,18 @@
++{
++  "$id": "MemoryTier",
++  "description": "Hierarchical memory tier",
++  "anyOf": [
++    {
++      "const": "core",
++      "type": "string"
++    },
++    {
++      "const": "working",
++      "type": "string"
++    },
++    {
++      "const": "archival",
++      "type": "string"
++    }
++  ]
++}
+diff --git a/schemas/agent/OpenClawAgentId.json b/schemas/agent/OpenClawAgentId.json
+new file mode 100644
+index 0000000..cfc5b5e
+--- /dev/null
++++ b/schemas/agent/OpenClawAgentId.json
+@@ -0,0 +1,54 @@
++{
++  "$id": "OpenClawAgentId",
++  "description": "OpenClaw agent identifier for skills routing",
++  "anyOf": [
++    {
++      "const": "main",
++      "type": "string"
++    },
++    {
++      "const": "orchestrator",
++      "type": "string"
++    },
++    {
++      "const": "developer",
++      "type": "string"
++    },
++    {
++      "const": "writer",
++      "type": "string"
++    },
++    {
++      "const": "analyst",
++      "type": "string"
++    },
++    {
++      "const": "researcher",
++      "type": "string"
++    },
++    {
++      "const": "security",
++      "type": "string"
++    },
++    {
++      "const": "data",
++      "type": "string"
++    },
++    {
++      "const": "devops",
++      "type": "string"
++    },
++    {
++      "const": "qa",
++      "type": "string"
++    },
++    {
++      "const": "ux",
++      "type": "string"
++    },
++    {
++      "const": "pm",
++      "type": "string"
++    }
++  ]
++}
+diff --git a/schemas/agent/SignalType.json b/schemas/agent/SignalType.json
+index 152fab7..8cd8dc2 100644
+--- a/schemas/agent/SignalType.json
++++ b/schemas/agent/SignalType.json
+@@ -37,6 +37,22 @@
+     {
+       "const": "warning",
+       "type": "string"
++    },
++    {
++      "const": "chain_started",
++      "type": "string"
++    },
++    {
++      "const": "chain_step_completed",
++      "type": "string"
++    },
++    {
++      "const": "chain_completed",
++      "type": "string"
++    },
++    {
++      "const": "chain_failed",
++      "type": "string"
+     }
+   ]
+ }
+diff --git a/schemas/graph/NodeLabel.json b/schemas/graph/NodeLabel.json
+index b619471..839fe41 100644
+--- a/schemas/graph/NodeLabel.json
++++ b/schemas/graph/NodeLabel.json
+@@ -38,6 +38,10 @@
+       "const": "Evidence",
+       "type": "string"
+     },
++    {
++      "const": "EvidenceBasedInsight",
++      "type": "string"
++    },
+     {
+       "const": "Claim",
+       "type": "string"
+@@ -50,10 +54,26 @@
+       "const": "KnowledgePattern",
+       "type": "string"
+     },
++    {
++      "const": "KnowledgePacket",
++      "type": "string"
++    },
++    {
++      "const": "KnowledgeTransfer",
++      "type": "string"
++    },
++    {
++      "const": "KnowledgeRequest",
++      "type": "string"
++    },
+     {
+       "const": "Knowledge",
+       "type": "string"
+     },
++    {
++      "const": "Lesson",
++      "type": "string"
++    },
+     {
+       "const": "MCPTool",
+       "type": "string"
+@@ -74,6 +94,26 @@
+       "const": "AgentProfile",
+       "type": "string"
+     },
++    {
++      "const": "AgentPersona",
++      "type": "string"
++    },
++    {
++      "const": "AgentMemory",
++      "type": "string"
++    },
++    {
++      "const": "AgentChain",
++      "type": "string"
++    },
++    {
++      "const": "PersonaTrait",
++      "type": "string"
++    },
++    {
++      "const": "Expertise",
++      "type": "string"
++    },
+     {
+       "const": "Session",
+       "type": "string"
+@@ -82,6 +122,10 @@
+       "const": "Decision",
+       "type": "string"
+     },
++    {
++      "const": "BootEvent",
++      "type": "string"
++    },
+     {
+       "const": "TDCDocument",
+       "type": "string"
+@@ -129,6 +173,70 @@
+     {
+       "const": "Memory",
+       "type": "string"
++    },
++    {
++      "const": "ContextFold",
++      "type": "string"
++    },
++    {
++      "const": "ContextFoldEvent",
++      "type": "string"
++    },
++    {
++      "const": "RoutingDecisionEvent",
++      "type": "string"
++    },
++    {
++      "const": "LearningEvent",
++      "type": "string"
++    },
++    {
++      "const": "HealthChangeEvent",
++      "type": "string"
++    },
++    {
++      "const": "QualityScoreEvent",
++      "type": "string"
++    },
++    {
++      "const": "QLearningEvent",
++      "type": "string"
++    },
++    {
++      "const": "MetaLearningEvent",
++      "type": "string"
++    },
++    {
++      "const": "MemoryPersistEvent",
++      "type": "string"
++    },
++    {
++      "const": "AttentionFoldEvent",
++      "type": "string"
++    },
++    {
++      "const": "CircuitBreakerEvent",
++      "type": "string"
++    },
++    {
++      "const": "SSEConnectionEvent",
++      "type": "string"
++    },
++    {
++      "const": "ErrorEvent",
++      "type": "string"
++    },
++    {
++      "const": "Project",
++      "type": "string"
++    },
++    {
++      "const": "KanbanTask",
++      "type": "string"
++    },
++    {
++      "const": "AgentMessage",
++      "type": "string"
+     }
+   ]
+ }
+diff --git a/schemas/graph/RelationshipType.json b/schemas/graph/RelationshipType.json
+index ba2d5cf..823ca38 100644
+--- a/schemas/graph/RelationshipType.json
++++ b/schemas/graph/RelationshipType.json
+@@ -102,6 +102,30 @@
+       "const": "HAS_CONTENT",
+       "type": "string"
+     },
++    {
++      "const": "HAS_TRAIT",
++      "type": "string"
++    },
++    {
++      "const": "HAS_EXPERTISE",
++      "type": "string"
++    },
++    {
++      "const": "HAS_PERSONA",
++      "type": "string"
++    },
++    {
++      "const": "TRANSFERRED_TO",
++      "type": "string"
++    },
++    {
++      "const": "CONSOLIDATED_TO",
++      "type": "string"
++    },
++    {
++      "const": "LEARNED_FROM",
++      "type": "string"
++    },
+     {
+       "const": "SIMILAR_TO",
+       "type": "string"
+@@ -117,6 +141,22 @@
+     {
+       "const": "DETECTED_AT",
+       "type": "string"
++    },
++    {
++      "const": "OWNS_PROJECT",
++      "type": "string"
++    },
++    {
++      "const": "HAS_KANBAN_TASK",
++      "type": "string"
++    },
++    {
++      "const": "SENT_MESSAGE",
++      "type": "string"
++    },
++    {
++      "const": "RECEIVED_MESSAGE",
++      "type": "string"
+     }
+   ]
+ }
+diff --git a/src/agent/enums.ts b/src/agent/enums.ts
+index 484bf35..d720be9 100644
+--- a/src/agent/enums.ts
++++ b/src/agent/enums.ts
+@@ -13,6 +13,7 @@ export type AgentTier = Static<typeof AgentTier>
+ 
+ /** RLM Engine agent personas — specialized cognitive roles */
+ export const AgentPersona = Type.Union([
++  // Core RLM personas
+   Type.Literal('RESEARCHER'),
+   Type.Literal('ENGINEER'),
+   Type.Literal('CUSTODIAN'),
+@@ -23,10 +24,59 @@ export const AgentPersona = Type.Union([
+   Type.Literal('ANALYST'),
+   Type.Literal('INTEGRATOR'),
+   Type.Literal('TESTER'),
+-], { $id: 'AgentPersona', description: 'RLM Engine agent persona' })
++  // OpenClaw agent personas
++  Type.Literal('MAIN'),
++  Type.Literal('ORCHESTRATOR'),
++  Type.Literal('DEVELOPER'),
++  Type.Literal('WRITER'),
++  Type.Literal('DATA_SCIENTIST'),
++  Type.Literal('SECURITY'),
++  Type.Literal('DEVOPS'),
++  Type.Literal('QA'),
++  Type.Literal('UX'),
++  Type.Literal('PM'),
++], { $id: 'AgentPersona', description: 'RLM Engine and OpenClaw agent persona' })
+ 
+ export type AgentPersona = Static<typeof AgentPersona>
+ 
++/** OpenClaw agent IDs — lowercase identifiers for skills routing */
++export const OpenClawAgentId = Type.Union([
++  Type.Literal('main'),
++  Type.Literal('orchestrator'),
++  Type.Literal('developer'),
++  Type.Literal('writer'),
++  Type.Literal('analyst'),
++  Type.Literal('researcher'),
++  Type.Literal('security'),
++  Type.Literal('data'),
++  Type.Literal('devops'),
++  Type.Literal('qa'),
++  Type.Literal('ux'),
++  Type.Literal('pm'),
++], { $id: 'OpenClawAgentId', description: 'OpenClaw agent identifier for skills routing' })
++
++export type OpenClawAgentId = Static<typeof OpenClawAgentId>
++
++/** Memory tier for hierarchical agent memory */
++export const MemoryTier = Type.Union([
++  Type.Literal('core'),
++  Type.Literal('working'),
++  Type.Literal('archival'),
++], { $id: 'MemoryTier', description: 'Hierarchical memory tier' })
++
++export type MemoryTier = Static<typeof MemoryTier>
++
++/** Knowledge packet types for agent-to-agent transfer */
++export const KnowledgePacketType = Type.Union([
++  Type.Literal('insight'),
++  Type.Literal('lesson'),
++  Type.Literal('fact'),
++  Type.Literal('procedure'),
++  Type.Literal('warning'),
++], { $id: 'KnowledgePacketType', description: 'Knowledge transfer packet type' })
++
++export type KnowledgePacketType = Static<typeof KnowledgePacketType>
++
+ /** Signal types emitted during engagement execution */
+ export const SignalType = Type.Union([
+   Type.Literal('task_started'),
+@@ -38,6 +88,11 @@ export const SignalType = Type.Union([
+   Type.Literal('deliverable_generated'),
+   Type.Literal('insight'),
+   Type.Literal('warning'),
++  // Chain execution signals
++  Type.Literal('chain_started'),
++  Type.Literal('chain_step_completed'),
++  Type.Literal('chain_completed'),
++  Type.Literal('chain_failed'),
+ ], { $id: 'SignalType', description: 'Agent signal event type' })
+ 
+ export type SignalType = Static<typeof SignalType>
+diff --git a/src/graph/labels.ts b/src/graph/labels.ts
+index 8b5006a..413d1ff 100644
+--- a/src/graph/labels.ts
++++ b/src/graph/labels.ts
+@@ -17,10 +17,15 @@ export const NodeLabel = Type.Union([
+   Type.Literal('Insight'),
+   Type.Literal('StrategicInsight'),
+   Type.Literal('Evidence'),
++  Type.Literal('EvidenceBasedInsight'),
+   Type.Literal('Claim'),
+   Type.Literal('KnowledgePack'),
+   Type.Literal('KnowledgePattern'),
++  Type.Literal('KnowledgePacket'),
++  Type.Literal('KnowledgeTransfer'),
++  Type.Literal('KnowledgeRequest'),
+   Type.Literal('Knowledge'),
++  Type.Literal('Lesson'),
+   // Tools
+   Type.Literal('MCPTool'),
+   Type.Literal('Tool'),
+@@ -28,8 +33,14 @@ export const NodeLabel = Type.Union([
+   // Agents & self-model
+   Type.Literal('Agent'),
+   Type.Literal('AgentProfile'),
++  Type.Literal('AgentPersona'),
++  Type.Literal('AgentMemory'),
++  Type.Literal('AgentChain'),
++  Type.Literal('PersonaTrait'),
++  Type.Literal('Expertise'),
+   Type.Literal('Session'),
+   Type.Literal('Decision'),
++  Type.Literal('BootEvent'),
+   // Data governance
+   Type.Literal('TDCDocument'),
+   Type.Literal('SystemSnapshot'),
+@@ -44,8 +55,27 @@ export const NodeLabel = Type.Union([
+   Type.Literal('Methodology'),
+   Type.Literal('KPI'),
+   Type.Literal('AIPattern'),
+-  // Memory
++  // Memory & context
+   Type.Literal('Memory'),
++  Type.Literal('ContextFold'),
++  // RLM Intelligence Events
++  Type.Literal('ContextFoldEvent'),
++  Type.Literal('RoutingDecisionEvent'),
++  Type.Literal('LearningEvent'),
++  Type.Literal('HealthChangeEvent'),
++  Type.Literal('QualityScoreEvent'),
++  Type.Literal('QLearningEvent'),
++  Type.Literal('MetaLearningEvent'),
++  Type.Literal('MemoryPersistEvent'),
++  Type.Literal('AttentionFoldEvent'),
++  Type.Literal('CircuitBreakerEvent'),
++  Type.Literal('SSEConnectionEvent'),
++  Type.Literal('ErrorEvent'),
++  // Project management
++  Type.Literal('Project'),
++  Type.Literal('KanbanTask'),
++  // Messaging
++  Type.Literal('AgentMessage'),
+ ], { $id: 'NodeLabel', description: 'Canonical Neo4j node labels' })
+ 
+ export type NodeLabel = Static<typeof NodeLabel>
+diff --git a/src/graph/relationships.ts b/src/graph/relationships.ts
+index 44f902c..96aa9a2 100644
+--- a/src/graph/relationships.ts
++++ b/src/graph/relationships.ts
+@@ -36,12 +36,25 @@ export const RelationshipType = Type.Union([
+   Type.Literal('RUNS'),
+   Type.Literal('MADE_DECISION'),
+   Type.Literal('HAS_CONTENT'),
++  Type.Literal('HAS_TRAIT'),
++  Type.Literal('HAS_EXPERTISE'),
++  Type.Literal('HAS_PERSONA'),
++  // Knowledge transfer
++  Type.Literal('TRANSFERRED_TO'),
++  Type.Literal('CONSOLIDATED_TO'),
++  Type.Literal('LEARNED_FROM'),
+   // Data quality
+   Type.Literal('SIMILAR_TO'),
+   Type.Literal('DUPLICATE_OF'),
+   // Expansion
+   Type.Literal('HAS_EXPANSION_SIGNAL'),
+   Type.Literal('DETECTED_AT'),
++  // Project management
++  Type.Literal('OWNS_PROJECT'),
++  Type.Literal('HAS_KANBAN_TASK'),
++  // Messaging
++  Type.Literal('SENT_MESSAGE'),
++  Type.Literal('RECEIVED_MESSAGE'),
+ ], { $id: 'RelationshipType', description: 'Canonical Neo4j relationship types' })
+ 
+ export type RelationshipType = Static<typeof RelationshipType>
+-- 
+2.43.0
+
