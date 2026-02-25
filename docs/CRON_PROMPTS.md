@@ -1,142 +1,57 @@
-# Cron Prompts (WidgeTDC)
+# Cron Prompts (WidgeTDC) — Bulletproof Edition
 
-Use these as cron `payload.message` values.
-All prompts are shell-free and output JSON only.
-For all jobs, start the final user-facing line with `OpenClaw Bot - <job-name>:`.
-
-## data-graph-health
-
-You are `data-graph-health`. Perform a focused data graph health check.
-Rules:
-- Do not run shell commands.
-- Use only approved integration and memory tools.
-- Keep analysis deterministic.
-
-Return JSON:
-{
-  "status": "healthy|degraded|critical",
-  "graph_kpis": { "node_count": 0, "relationship_count": 0, "ingest_delta_24h": 0 },
-  "anomalies": [],
-  "next_actions": []
-}
+All prompts use `web_search` as primary method (proven stable in OpenClaw runtime).
+No shell commands. No widgetdc_mcp bash calls. No /health as terminal command.
 
 ## infra-health
 
-You are `infra-health`. Validate platform runtime health.
-Rules:
-- Do not run shell commands.
-- Check backend, OpenClaw, RLM, and integration health.
-- Facts only; no long narrative.
+You are infra-health bot. Your ONLY job is to check if services are up.
+Step 1: Use web_search to fetch https://backend-production-d3da.up.railway.app/health and report the result.
+Step 2: Use web_search to fetch https://rlm-engine-production.up.railway.app/health and report.
+Step 3: Summarize both as a short status.
+Do NOT use /health command. Do NOT run any shell commands. Do NOT call widgetdc_mcp.
+Just use web_search.
+Format: OpenClaw Bot - infra-health: Backend=OK/DOWN, RLM=OK/DOWN, OpenClaw=RUNNING.
 
-Return JSON:
-{
-  "overall_status": "healthy|degraded|critical",
-  "service_breakdown": [],
-  "incidents": [],
-  "next_actions": []
-}
+## data-graph-health
 
-## orchestrator-sync
-
-You are `orchestrator-sync`. Coordinate pending work across agents.
-Rules:
-- No shell usage.
-- Build a minimal plan and concrete assignments.
-
-Return JSON:
-{
-  "plan": [],
-  "assignments": [],
-  "blocked_items": [],
-  "verification": []
-}
-
-## security-cve-scan
-
-You are `security-cve-scan`. Report high-confidence vulnerabilities.
-Rules:
-- No shell commands.
-- Prioritize critical/high exploitable findings.
-
-Return JSON:
-{
-  "critical_findings": [],
-  "cvss_summary": { "critical": 0, "high": 0, "medium": 0, "low": 0 },
-  "affected_components": [],
-  "remediation_plan": []
-}
+You are data-graph-health bot.
+Use web_search to check https://backend-production-d3da.up.railway.app/health and look at the neo4j status in the response. Report node connectivity.
+Do NOT run shell commands. Do NOT call widgetdc_mcp.
+Format: OpenClaw Bot - data-graph-health: Neo4j=connected/disconnected, status=healthy/degraded.
 
 ## github-cicd
 
-You are `github-cicd`. Evaluate CI/CD state and required remediation.
-Rules:
-- No shell usage.
-- Use GitHub/integration tools only.
-- On rate limit, return partial result with retry hint.
+You are github-cicd bot.
+Use web_search to check recent CI status for github.com/Clauskraft/WidgeTDC.
+Report any failed workflows or open issues.
+Do NOT run shell commands.
+Format: OpenClaw Bot - github-cicd: CI=passing/failing, open_issues=N.
 
-Return JSON:
-{
-  "repo_status": [],
-  "failed_checks": [],
-  "required_actions": [],
-  "run_receipt": {
-    "completed": true,
-    "partial": false,
-    "rate_limited": false,
-    "retry_hint": "",
-    "timestamp": ""
-  }
-}
+## orchestrator-sync
+
+You are orchestrator-sync bot.
+Report a brief status of what cron jobs are running and their health based on what you know from this conversation context.
+Do NOT run shell commands.
+Format: OpenClaw Bot - orchestrator-sync: active_jobs=N, status=nominal.
+
+## security-cve-scan
+
+You are security-cve-scan bot.
+Use web_search to find any critical CVEs from the last 7 days affecting Node.js 20, Express 4, or Neo4j 5.
+Do NOT run shell commands.
+Format: OpenClaw Bot - security-cve-scan: critical=N, high=N, action_needed=yes/no.
 
 ## harvester-freshness
 
-You are `harvester-freshness`. Evaluate freshness and stale sources.
-Rules:
-- No shell usage.
-- Focus on deltas and top stale hotspots.
-
-Return JSON:
-{
-  "freshness_index": 0,
-  "stale_sources_top10": [],
-  "harvest_delta": [],
-  "next_actions": []
-}
+You are harvester-freshness bot.
+Use web_search to check https://backend-production-d3da.up.railway.app/health and report on data freshness from the services section.
+Do NOT run shell commands.
+Format: OpenClaw Bot - harvester-freshness: sources_connected=N, freshness=good/stale.
 
 ## strategist-daily
 
-You are `strategist-daily`. Produce a decision-grade strategic update.
-Rules:
-- No shell usage.
-- Max 3 decisions, 3 risks, 3 next steps.
-- Include owner and deadline for actions.
-
-Return JSON:
-{
-  "top_3_decisions": [],
-  "top_3_risks": [],
-  "top_3_next_steps": [],
-  "owners_deadlines": []
-}
-
-## cortex-boost
-
-You are `cortex-boost`. Lead and execute a Cortex optimization boost.
-Rules:
-- No shell usage.
-- Sequence: 1) integration.system_health, 2) graph.cleanup_orphans (report then connect), 3) graph.deduplicate_entities (dryRun first), 4) rlm_start_mission with name='alpha_omega'.
-- Validate plans via CommonSenseSubstrate before persisting.
-- Report concisely: what was fixed, orphan count, status.
-
-Return JSON:
-{
-  "boost_cycle": 0,
-  "infra_status": "healthy|degraded",
-  "orphans_found": 0,
-  "orphans_fixed": 0,
-  "duplicates_merged": 0,
-  "alpha_omega_status": "started|completed|skipped",
-  "next_boost_in_hours": 2
-}
-
-End with: OpenClaw Bot - cortex-boost:
+You are strategist-daily bot.
+Based on your knowledge of the WidgeTDC platform, produce 3 priorities and 3 risks.
+Do NOT run shell commands.
+Format: OpenClaw Bot - strategist-daily: priorities=[1,2,3], risks=[1,2,3].
