@@ -22,9 +22,8 @@ metadata: {"openclaw": {"emoji": "📊", "primaryEnv": "WIDGETDC_BACKEND_URL"}}
 | StrategicInsight | 15 |
 | Lesson | 10 |
 | Directive | 10 |
-| Insight | 1 |
-| L1ProcessFlow | 12 |
-| ConsultingDomain | 7 |
+| Insight | 9 |
+| L1ProcessFlow | 11 |
 
 ## Eksempler
 
