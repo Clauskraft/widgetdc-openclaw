@@ -167,16 +167,18 @@ SEEDEOF
   echo "[entrypoint] Full WidgeTDC config seeded"
 fi
 
-# ── Device auth migration — slå device identity fra (fix "device identity required") ──────
+# ── Device auth migration — eliminate "Disconnected from gateway" / "device identity required" (RUN080) ──────
+# Ensures Control UI always has valid auth: device auth disabled for token-based auth, gateway.auth.token set,
+# allowedOrigins include Railway origin. Wrapper injects token into GET and WebSocket; no user action required.
 if [ -f "${CONFIG_FILE}" ] && command -v node >/dev/null 2>&1; then
-  export CONFIG_FILE RAILWAY_PUBLIC_DOMAIN
+  export CONFIG_FILE RAILWAY_PUBLIC_DOMAIN OPENCLAW_GATEWAY_TOKEN
   node -e "
     const fs = require('fs');
     const path = process.env.CONFIG_FILE;
     let cfg;
     try { cfg = JSON.parse(fs.readFileSync(path, 'utf8')); } catch (e) { process.exit(0); }
     const cu = cfg.gateway?.controlUi || {};
-    if (cu.dangerouslyDisableDeviceAuth === true) process.exit(0);
+    if (cu.dangerouslyDisableDeviceAuth === true && cfg.gateway?.auth?.token) process.exit(0);
     cfg.gateway = cfg.gateway || {};
     cfg.gateway.controlUi = { ...cu, allowInsecureAuth: true, dangerouslyDisableDeviceAuth: true };
     const domain = process.env.RAILWAY_PUBLIC_DOMAIN || 'openclaw-production-9570.up.railway.app';
@@ -184,8 +186,13 @@ if [ -f "${CONFIG_FILE}" ] && command -v node >/dev/null 2>&1; then
     const origins = cfg.gateway.controlUi.allowedOrigins || [];
     if (!origins.includes(origin)) origins.push(origin);
     cfg.gateway.controlUi.allowedOrigins = origins;
+    const token = process.env.OPENCLAW_GATEWAY_TOKEN?.trim();
+    if (token) {
+      cfg.gateway.auth = cfg.gateway.auth || {};
+      cfg.gateway.auth.token = token;
+    }
     fs.writeFileSync(path, JSON.stringify(cfg, null, 2));
-    console.log('[entrypoint] Set dangerouslyDisableDeviceAuth=true (fix device identity required)');
+    console.log('[entrypoint] RUN080: device auth disabled + gateway.auth.token set (device identity required eliminated)');
   " 2>/dev/null || true
 fi
 

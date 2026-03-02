@@ -1430,11 +1430,18 @@ app.use(async (req, res) => {
     }
   }
 
-  if ((req.path === "/openclaw" || req.path === "/chat") && !req.query.token) {
+  // RUN080: ensure token on all Control UI paths (e.g. /openclaw/chat?session=main) so "device identity required" never appears
+  if (
+    (req.path === "/openclaw" ||
+      req.path.startsWith("/openclaw/") ||
+      req.path === "/chat") &&
+    !req.query.token
+  ) {
     const path = req.path;
     const qs = req.url.includes("?") ? req.url.slice(req.url.indexOf("?") + 1) : "";
-    const sep = qs ? "&" : "";
-    return res.redirect(`${path}?token=${encodeURIComponent(OPENCLAW_GATEWAY_TOKEN)}${sep}${qs}`);
+    return res.redirect(
+      `${path}?${qs ? qs + "&" : ""}token=${encodeURIComponent(OPENCLAW_GATEWAY_TOKEN)}`,
+    );
   }
 
   return proxy.web(req, res, { target: GATEWAY_TARGET });
