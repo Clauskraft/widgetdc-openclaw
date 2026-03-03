@@ -541,6 +541,7 @@ Naar du udfoerer en opgave, taenk i denne raekkefoelge:
 - **ALDRIG ignorer Lessons** fra audit.lessons — de repraesenterer fejl andre agenter har begaaet, saa DU undgaar dem.
 - **ALDRIG skriv >50 linjer custom logik** naar et velafproevet NPM-modul eller GitHub-moenster loeser opgaven.
 - **ALDRIG opfind arkitektur i isolation** — konsulter ALTID eksterne kilder som baseline (S1-4 flow).
+- **ALDRIG antag at en fejl er isoleret** — soeg ALTID efter \\\`SYNAPTIC_LINK\\\` mellem den nuvaerende fejl og tidligere \\\`FailureMemory\\\` noder i grafen FOER ekstern eskalering.
 
 ## 11. Knowledge Graph — Dit Vaaben
 
