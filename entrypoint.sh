@@ -456,15 +456,19 @@ Alle agenter har adgang til disse memory-lag via MCP tools:
 
 ## 3. Operational Protocol
 Naar du udfoerer en opgave, taenk i denne raekkefoelge:
+0. **Lesson Check**: INDEN du starter, koer \\\`audit.lessons\\\` med dit agent-id. Hvis der er pending lessons fra andre agenter, INTEGRER dem i din strategi. Acknowledge med \\\`audit.acknowledge\\\`. Ignorer ALDRIG lessons — de repraesenterer fejl andre har begaaet, saa DU undgaar dem.
 1. **Context Check**: Er mine data foraeldede? Tjek \\\`omega:repomix:last_commit\\\` i Redis mod Git-head.
 2. **Memory Ingestion**: Generer du en indsigt? Push til Redis-stream \\\`omega:memory:stream\\\` for global tilgaengelighed.
 3. **Graph Awareness**: Brug \\\`graph.read_cypher\\\` til blast radius analyse foer aendringer.
 4. **Contract Compliance**: Alle aendringer SKAL overholde widgetdc-contracts. Kontrakterne er LOV.
+5. **Integrity Audit**: Dit output bliver automatisk auditeret af InsightIntegrityGuard. Saa soerg for: kildehenvisninger (\\\`[Source: CODE-ID]\\\`), \\\`$id\\\` i JSON, og ingen modsigelser mod FailureMemory.
 
 ## 4. Agent Communication
 - **Teacher/Student**: Gem learnings som \\\`AgentMemory\\\` noder i Neo4j med \\\`type: teaching\\\`.
+- **Cross-Agent Learning**: Fejl fra een agent propageres automatisk til ALLE andre via \\\`Lesson\\\` noder og \\\`SHOULD_AWARE_OF\\\` relationer. InsightIntegrityGuard detecter fejl → AgentLearningLoop opretter Lesson → andre agenter faar besked via \\\`audit.lessons\\\`.
 - **Task API**: \\\`agent.task.create\\\`, \\\`agent.task.claim\\\`, \\\`agent.task.complete\\\` for asynkron koordinering.
 - **Slack Bridge**: Brug \\\`/api/notifications/send\\\` for alerts og rapporter til Slack.
+- **Integrity Alerts**: Naar en agents IntegrityScore falder under 40% over 5 opgaver, sendes Slack alert automatisk. Agenten saettes i Degraded Mode.
 - **SwarmControl**: Konsensus-baseret beslutningstagning via \\\`autonomous.coordinate\\\`.
 
 ## 5. Skills vs MCP Tools
@@ -483,6 +487,7 @@ Naar du udfoerer en opgave, taenk i denne raekkefoelge:
 - \\\`docgen.*\\\` — Document generation
 - \\\`integration.*\\\` — System health, source ingestion
 - \\\`context_folding.*\\\` — Context compression via RLM
+- \\\`audit.*\\\` — Integrity audit (run, status, dashboard, lessons, acknowledge)
 
 ## 7. Error & Fallback Protocol
 - **Circuit Breakers**: Backend har circuit breakers paa alle eksterne services. CLOSED=ok, OPEN=fejl, HALF_OPEN=test.
@@ -518,6 +523,9 @@ Naar du udfoerer en opgave, taenk i denne raekkefoelge:
 - **ALTID fold context**: Brug \\\`context_folding.fold\\\` naar du arbejder med store datamangder (>4000 tokens).
 - **ALTID gem learnings**: Naar du laerer noget nyt, gem det som AgentMemory saa andre agenter kan laere af det.
 - **ALTID brug \\\`signal: AbortSignal.timeout()\\\`** paa fetch kald — ALDRIG hav unbounded requests.
+- **ALTID koer Lesson Check** (audit.lessons) foer du starter en mission — laer af andres fejl.
+- **ALTID brug \\\`[Source: CODE-ID]\\\`** format naar du refererer til StrategicInsights fra grafen.
+- **ALTID soeg eksternt** (GitHub, NPM, HuggingFace) naar Neo4j ikke har et direkte match — Research-First Mandate.
 
 ### DON'Ts (ALDRIG)
 - **ALDRIG kald backend UDEN auth header** — dette er grunden til 90% af alle fejl vi har haft.
@@ -530,6 +538,9 @@ Naar du udfoerer en opgave, taenk i denne raekkefoelge:
 - **ALDRIG hardcode API keys** — brug ALTID \\\`process.env.WIDGETDC_API_KEY\\\`.
 - **ALDRIG send raw stack traces til Slack** — formater, opsummer, giv kontekst.
 - **ALDRIG aendr arkitektur uden konsensus** — brug SwarmControl for aendringer der rammer >3 moduler.
+- **ALDRIG ignorer Lessons** fra audit.lessons — de repraesenterer fejl andre agenter har begaaet, saa DU undgaar dem.
+- **ALDRIG skriv >50 linjer custom logik** naar et velafproevet NPM-modul eller GitHub-moenster loeser opgaven.
+- **ALDRIG opfind arkitektur i isolation** — konsulter ALTID eksterne kilder som baseline (S1-4 flow).
 
 ## 11. Knowledge Graph — Dit Vaaben
 
@@ -655,17 +666,41 @@ Foer ENHVER beslutning:
 2. \\\`kg_rag.query\\\` — semantisk soegning for relateret viden
 3. \\\`consulting.pattern.search\\\` — er der et kendt moenster?
 4. Foerst DEREFTER: generer dit svar baseret paa evidens
-5. Tilfoej kilder: \\\`[Source: NODE_TYPE-ID]\\\` format"
+5. Tilfoej kilder: \\\`[Source: NODE_TYPE-ID]\\\` format
+
+## 14. External Discovery & JIT Ingestion (S1-4 Flow)
+
+### A. The Research-First Mandate
+Hvis Neo4j (L2) IKKE indeholder et direkte match, SKAL du konsultere eksterne kilder FOER kodning:
+1. **GitHub API**: Soeg efter production-ready arkitekturmoenstre (prioriter repos >500 stars). Brug \\\`gh api search/repositories?q=QUERY\\\`.
+2. **NPM/Node Registry**: Find gennemtestede biblioteker. ALDRIG skriv custom utility-kode naar et veletableret NPM-modul loeser det.
+3. **HuggingFace**: Ved ML/AI transformationer eller logik-moenstre. Brug HuggingFace MCP tools.
+4. **Git**: For specifikke modul-integrationer fra kendte frameworks.
+
+### B. S1-4 Ingestion Pipeline Protocol
+Naar en ekstern kilde er identificeret, koer dette flow AUTONOMT:
+- **S1 (Extract)**: Hent KUN den noedvendige logik (Atomic Extraction — max 50 linjer per modul).
+- **S2 (Map)**: Transformer typer og schemas til \\\`widgetdc-contracts\\\` formater. Wire format: snake_case JSON med \\\`$id\\\`.
+- **S3 (Inject)**: Indlejr den transformerede kode i lokal kildekode. Opret \\\`:ExternalKnowledge\\\` node i Neo4j linket til det \\\`:Module\\\` der bruger den.
+- **S4 (Verify)**: Koer build + lad InsightIntegrityGuard validere. Tjek \\\`audit.run\\\` resultatet.
+
+### C. JIT DO's & DON'Ts
+- **DO**: Brug \\\`integration.source.ingest\\\` til at automatisere S1-4 processen.
+- **DO**: Opret \\\`:ExternalKnowledge\\\` noder med \\\`source_url\\\`, \\\`stars\\\`, \\\`license\\\` properties.
+- **DO**: Link \\\`:ExternalKnowledge\\\` til \\\`:StrategicInsight\\\` via \\\`INSPIRED_BY\\\` relation.
+- **DONT**: ALDRIG skriv mere end 50 linjer custom logik naar et velafproevet NPM-modul loeser opgaven.
+- **DONT**: ALDRIG opfind en arkitekturloesning i isolation — konsulter ALTID eksterne kilder som baseline.
+- **DONT**: ALDRIG kopier ekstern kode uden at koere den igennem S2 (Map til contracts) og S4 (Verify)."
 
   # BOOTSTRAP.md — opstartsrutine + første opgave
   write_ws_file "BOOTSTRAP.md" "# ${AGENT_EMOJI} ${AGENT_NAME} — Bootstrap
-Ved session-start, kør i rækkefølge:
-1. Læs VISION.md + ARCHITECTURE.md — fælles mål og systemarkitektur
-2. Indlæs memory: widgetdc_mcp consulting.agent.memory.recall agentId=${AGENT_ID}
-3. Tjek system: widgetdc_mcp integration.system_health (hvis tilgængeligt)
-4. Context Check: Tjek omega:repomix:last_commit i Redis — er dine data friske?
-5. Hent lessons: graph.read_cypher MATCH (l:Lesson) RETURN l.title, l.content LIMIT 5
-6. **Start arbejde:** Udfør din rolle — ${AGENT_ROLE}
+Ved session-start, koer i raekkefoelge:
+1. Laes VISION.md + ARCHITECTURE.md — faelles maal og systemarkitektur
+2. **Lesson Check**: Koer \\\`audit.lessons\\\` med dit agent-id. Integrer pending lessons. Acknowledge med \\\`audit.acknowledge\\\`.
+3. Indlaes memory: widgetdc_mcp consulting.agent.memory.recall agentId=${AGENT_ID}
+4. Tjek system: widgetdc_mcp integration.system_health (hvis tilgaengeligt)
+5. Context Check: Tjek omega:repomix:last_commit i Redis — er dine data friske?
+6. **Start arbejde:** Udfoer din rolle — ${AGENT_ROLE}
 <!-- AUTO-GENERATED -->"
 
   # HEARTBEAT.md — agent-specifik checklist (tom = skip; indhold = kør heartbeat)
