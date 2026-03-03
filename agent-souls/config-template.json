@@ -18,15 +18,15 @@
     },
     "list": [
       {
-        "id": "kaptajn-klo",
-        "name": "Kaptajn Klo 🦞",
-        "description": "Hoved-konsulent & orkestrator for WidgeTDC AI platformen. Adgang til 335 MCP tools og Neo4j knowledge graph.",
+        "id": "omega-sentinel",
+        "name": "Omega Sentinel",
+        "description": "Omniscient architecture guardian & supreme intelligence authority. 100% visibility into all repos, services, contracts, logs, and integrations. Both audit and intelligence service.",
         "model": { "name": "gemini-2.5-flash", "provider": "google" },
         "systemPromptFile": "/data/workspace/agent-souls/main.md",
         "contextTokens": 1000000,
         "timeoutSeconds": 300,
         "elevated": true,
-        "heartbeat": { "enabled": true, "every": "1h" }
+        "heartbeat": { "enabled": true, "every": "15m" }
       },
       {
         "id": "skribleren",
@@ -81,59 +81,75 @@
   },
   "cron": [
     {
-      "id": "infra-health",
-      "schedule": "*/15 * * * *",
-      "description": "Platform health check hvert 15. minut",
-      "message": "Call /health quick to check Backend and RLM. Do NOT run shell commands or type widgetdc_mcp as bash. Summarize as JSON with overall_status, service_breakdown, incidents, next_actions. End with OpenClaw Bot - infra-health:",
+      "id": "omega-desk-check",
+      "schedule": "*/5 * * * *",
+      "description": "SIGNAL: Architecture Platform desk check hvert 5. minut",
+      "message": "Call the health skill with mode 'full' to check ALL services. Also call widgetdc_mcp('omega.sitrep') for architecture status. Do NOT use web_search for health checks. Do NOT run shell commands. Produce SITREP JSON: {desk_status, backend_status, rlm_status, threat_level, actions}. If ANY service is down, set threat_level='P0' and describe immediate action. End with Omega Sentinel - SIGNAL:",
       "enabled": true,
       "notify": true
     },
     {
-      "id": "github-cicd",
-      "schedule": "0 */4 * * *",
-      "description": "GitHub CI/CD status hver 4. time",
-      "message": "Call /cicd status to check CI/CD. Do NOT run shell commands or type widgetdc_mcp as bash. Summarize as JSON with repo_status, failed_checks, required_actions, run_receipt. End with OpenClaw Bot - github-cicd:",
+      "id": "omega-compliance-audit",
+      "schedule": "*/30 * * * *",
+      "description": "CLAUSE: Contract compliance audit hver 30. minut",
+      "message": "Call widgetdc_mcp('omega.compliance') for compliance status. Do NOT use web_search for API calls. Do NOT run shell commands. Produce JSON: {compliance_grade, score, total_checks, pass_count, warn_count, fail_count, top_3_violations, remediation_priority}. ALARM if score < 50. End with Omega Sentinel - CLAUSE:",
       "enabled": true,
       "notify": true
     },
     {
-      "id": "data-graph-health",
-      "schedule": "15 8 * * *",
-      "description": "Knowledge graph health daglig kl. 08:15",
-      "message": "Call /graph stats to get node and relationship counts. Do NOT run shell commands. Summarize as JSON with status, graph_kpis, anomalies, next_actions. End with OpenClaw Bot - data-graph-health:",
-      "enabled": true,
-      "notify": true
-    },
-    {
-      "id": "orchestrator-sync",
+      "id": "omega-antipattern-sweep",
       "schedule": "0 */2 * * *",
-      "description": "Task orchestration sync hver 2. time",
-      "message": "Call /supervisor status and /task fetch to check pending work. Do NOT run shell commands. Summarize as JSON with plan, assignments, blocked_items, verification. End with OpenClaw Bot - orchestrator-sync:",
-      "enabled": false,
+      "description": "SYNAPSE: Anti-pattern and circular dependency sweep hver 2. time",
+      "message": "Fetch https://arch-mcp-server-production.up.railway.app/api/analysis. Do NOT run shell commands. Produce JSON: {antipattern_count, circular_deps, god_modules, orphan_count, delta_from_last, new_violations, severity}. ALARM if new circular deps detected. End with Omega Sentinel - SYNAPSE:",
+      "enabled": true,
       "notify": true
     },
     {
-      "id": "security-cve-scan",
-      "schedule": "0 */6 * * *",
-      "description": "CVE scanning hver 6. time",
-      "message": "Use web_search to find recent critical CVEs for Node.js, Express, Neo4j. Do NOT run shell commands. Summarize as JSON with critical_findings, cvss_summary, affected_components, remediation_plan. End with OpenClaw Bot - security-cve-scan:",
-      "enabled": false,
-      "notify": true
-    },
-    {
-      "id": "harvester-freshness",
+      "id": "omega-cicd-guardian",
       "schedule": "0 */4 * * *",
-      "description": "Data freshness check hver 4. time",
-      "message": "Call /graph stats to check data freshness. Do NOT run shell commands. Summarize as JSON with freshness_index, stale_sources_top10, harvest_delta, next_actions. End with OpenClaw Bot - harvester-freshness:",
-      "enabled": false,
+      "description": "PIPELINE: GitHub CI/CD status hver 4. time",
+      "message": "Call /cicd status to check CI/CD. Do NOT run shell commands. Produce JSON: {repo_status, failed_checks, branch_protection_intact, required_actions}. ALARM if any workflow failing on main. End with Omega Sentinel - PIPELINE:",
+      "enabled": true,
       "notify": true
     },
     {
-      "id": "strategist-daily",
-      "schedule": "0 */12 * * *",
-      "description": "Strategisk briefing hver 12. time",
-      "message": "Review platform status from memory and recent activity. Do NOT run shell commands. Produce JSON with top_3_decisions, top_3_risks, top_3_next_steps, owners_deadlines. End with OpenClaw Bot - strategist-daily:",
-      "enabled": false,
+      "id": "omega-graph-custodian",
+      "schedule": "15 * * * *",
+      "description": "SYNAPSE: Neo4j graph health og ontology check hver time",
+      "message": "Call widgetdc_mcp('graph.stats') and widgetdc_mcp('graph.health') for Neo4j status. Do NOT use web_search for API calls. Do NOT run shell commands. Produce JSON: {node_count, edge_count, orphan_estimate, health_status, anomalies}. End with Omega Sentinel - SYNAPSE:",
+      "enabled": true,
+      "notify": true
+    },
+    {
+      "id": "omega-sentinel-gaps",
+      "schedule": "0 */3 * * *",
+      "description": "ARGUS: Knowledge gap intelligence sweep hver 3. time",
+      "message": "Call widgetdc_mcp('get_sentinel_status') and widgetdc_mcp('get_learning_insights') for knowledge gaps. Do NOT use web_search for API calls. Do NOT run shell commands. Produce JSON: {open_gaps, critical_gaps, resolution_rate, top_strategies, stale_gaps, recommended_actions}. ALARM if critical gaps > 5. End with Omega Sentinel - ARGUS:",
+      "enabled": true,
+      "notify": true
+    },
+    {
+      "id": "omega-security-scan",
+      "schedule": "0 */6 * * *",
+      "description": "AEGIS: CVE + OWASP security scan hver 6. time",
+      "message": "Use web_search to find recent critical CVEs for Node.js, Express, Neo4j, Prisma. Do NOT run shell commands. Produce JSON: {critical_cves, affected_components, cvss_max, remediation_plan}. End with Omega Sentinel - AEGIS:",
+      "enabled": true,
+      "notify": true
+    },
+    {
+      "id": "omega-cost-audit",
+      "schedule": "0 8 * * *",
+      "description": "FISCAL: Daily cost and quota audit kl. 08:00",
+      "message": "Review known API quotas and model provider costs from memory. Do NOT run shell commands. Produce JSON: {estimated_daily_cost, quota_usage_pct, top_3_cost_drivers, optimization_suggestions}. End with Omega Sentinel - FISCAL:",
+      "enabled": true,
+      "notify": true
+    },
+    {
+      "id": "omega-daily-sitrep",
+      "schedule": "0 7 * * *",
+      "description": "OMEGA: Full daily situation report kl. 07:00",
+      "message": "Produce comprehensive OMEGA SENTINEL SITREP. Call health skill with mode 'full'. Call widgetdc_mcp('omega.sitrep'), widgetdc_mcp('omega.compliance'), widgetdc_mcp('graph.stats'), widgetdc_mcp('get_sentinel_status'). Do NOT use web_search for API calls. Do NOT run shell commands. Produce full SITREP with: desk_status, compliance_grade, antipatterns, circular_deps, services_health, contract_sync, knowledge_gaps, sub_agent_status, threat_level, findings, actions_taken, standing_orders. End with Omega Sentinel - DAILY SITREP:",
+      "enabled": true,
       "notify": true
     }
   ],

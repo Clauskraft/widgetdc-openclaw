@@ -22,10 +22,11 @@ import { widgetdc_mcp } from '../widgetdc-mcp/index';
 const BACKEND  = process.env.WIDGETDC_BACKEND_URL  || 'https://backend-production-d3da.up.railway.app';
 const RLM      = process.env.RLM_ENGINE_URL         || 'https://rlm-engine-production.up.railway.app';
 const FRONTEND = process.env.CONSULTING_FRONTEND_URL || 'https://consulting-production-b5d8.up.railway.app';
+const API_KEY  = process.env.WIDGETDC_API_KEY || process.env.API_KEY || '';
 
 // Agent liste for status rapportering
 const AGENTS = [
-  { id: 'main', name: 'Kaptajn Klo', emoji: '🦞' },
+  { id: 'main', name: 'Omega Sentinel', emoji: '🛡️' },
   { id: 'github', name: 'Repo Sherif', emoji: '🤠' },
   { id: 'data', name: 'Graf-Oktopus', emoji: '🐙' },
   { id: 'infra', name: 'Jernfod', emoji: '🦾' },
@@ -77,7 +78,7 @@ async function ping(url: string, path = '/health'): Promise<{ ok: boolean; laten
   try {
     const r = await fetch(`${url}${path}`, {
       signal: AbortSignal.timeout(8_000),
-      headers: { 'Connection': 'keep-alive' },
+      headers: { 'Connection': 'keep-alive', ...(API_KEY ? { 'Authorization': `Bearer ${API_KEY}` } : {}) },
     });
     let data: unknown;
     try { data = await r.clone().json(); } catch { data = null; }
@@ -283,7 +284,7 @@ export async function hourlyReport(): Promise<unknown> {
 
     await fetch(`${BACKEND}/api/notifications/send`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(API_KEY ? { 'Authorization': `Bearer ${API_KEY}` } : {}) },
       body: JSON.stringify({
         level: h.overall.includes('healthy') ? 'success' : 'warning',
         title: `🕐 Hourly Status: ${h.overall}`,

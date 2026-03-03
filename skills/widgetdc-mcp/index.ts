@@ -10,6 +10,7 @@
 
 const MCP_ENDPOINT = process.env.WIDGETDC_MCP_ENDPOINT || 'https://backend-production-d3da.up.railway.app/api/mcp/route';
 const BACKEND_URL = process.env.WIDGETDC_BACKEND_URL || 'https://backend-production-d3da.up.railway.app';
+const API_KEY = process.env.WIDGETDC_API_KEY || process.env.API_KEY || '';
 
 // ═══ Opt 4: TTL Cache for frequently called tools ═══
 
@@ -58,6 +59,7 @@ const POOLED_HEADERS: Record<string, string> = {
   'Content-Type': 'application/json',
   'Connection': 'keep-alive',
   'Accept-Encoding': 'gzip, deflate, br',  // Opt 9: gzip
+  ...(API_KEY ? { 'Authorization': `Bearer ${API_KEY}` } : {}),
 };
 
 // ═══ Universal Tool Proxy (with caching + pooling + gzip) ═══
@@ -118,7 +120,7 @@ export async function widgetdc_discover(): Promise<unknown> {
   if (cached !== null) return cached;
 
   const res = await fetch(`${BACKEND_URL}/api/mcp/tools`, {
-    headers: { 'Connection': 'keep-alive', 'Accept-Encoding': 'gzip, deflate, br' },
+    headers: { 'Connection': 'keep-alive', 'Accept-Encoding': 'gzip, deflate, br', ...(API_KEY ? { 'Authorization': `Bearer ${API_KEY}` } : {}) },
   });
   if (!res.ok) throw new Error(`Discovery failed: ${res.status}`);
   const data = await res.json();
@@ -153,13 +155,13 @@ export async function system_health() {
   const [backend, mcp] = await Promise.all([
     fetch(`${BACKEND_URL}/health`, {
       signal: AbortSignal.timeout(5000),
-      headers: { 'Connection': 'keep-alive' },
+      headers: { 'Connection': 'keep-alive', ...(API_KEY ? { 'Authorization': `Bearer ${API_KEY}` } : {}) },
     })
       .then(r => ({ ok: r.ok, status: r.status }))
       .catch(() => ({ ok: false, status: 0 })),
     fetch(`${BACKEND_URL}/api/mcp/status`, {
       signal: AbortSignal.timeout(5000),
-      headers: { 'Connection': 'keep-alive' },
+      headers: { 'Connection': 'keep-alive', ...(API_KEY ? { 'Authorization': `Bearer ${API_KEY}` } : {}) },
     })
       .then(r => r.json())
       .catch(() => ({ status: 'unreachable' })),
