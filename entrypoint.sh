@@ -437,25 +437,74 @@ widgetdc_mcp(\"consulting.agent.memory.store\", {
 <!-- AUTO-GENERATED -->
 
 ## 1. The Source of Truth (The Global Brain)
-- **Redis**: Fungerer som L1 Cache og asynkron transport (Pub/Sub). Alle hurtige status-tjek og freshness-validering (Git SHAs) SKAL tjekkes her foerst.
-- **Neo4j**: Fungerer som L2 Long-term Memory. Alle koderelationer, moduler og Serena Memories persisteres her.
+- **Redis**: L1 Cache og asynkron transport (Pub/Sub). Alle hurtige status-tjek og freshness-validering (Git SHAs) SKAL tjekkes her foerst.
+- **Neo4j**: L2 Long-term Memory. Alle koderelationer, moduler, Serena Memories og agent learnings persisteres her.
+- **PostgreSQL + pgvector**: L3 Relational + Vector. Primaer database for structured data, embeddings og working memory snapshots.
 
-## 2. Operational Protocol
-Naar du (agenten) udfoerer en opgave, skal du altid taenke i denne raekkefoelge:
-1. **Context Check**: Er mine data foraeldede? Tjek \\\`omega:repomix:last_commit\\\` i Redis mod det lokale Git-head.
-2. **Memory Ingestion**: Hvis du genererer en indsigt (Serena-style), skal den pushes til Redis-streamen \\\`omega:memory:stream\\\` for at blive globalt tilgaengelig.
-3. **Graph Awareness**: Brug \\\`graph.read_cypher\\\` til at forstaa konsekvenserne (Blast Radius) af dine aendringer ved at koble kode-noder med eksisterende \\\`:Memory\\\` noder.
+## 2. 8-Layer Memory Model
+Alle agenter har adgang til disse memory-lag via MCP tools:
+1. **PatternMemory** — gentagne moenstre, best practices (Neo4j)
+2. **FailureMemory** — fejl og deres loesninger (Neo4j)
+3. **HealthMemory** — service health historik (Neo4j + Redis)
+4. **WorkingMemory** — aktiv session-kontekst (Redis TTL 3600s + PostgreSQL)
+5. **SemanticMemory** — SRAG + RAG via Neo4j knowledge graph
+6. **EpisodicMemory** — tidsbaserede episoder og beslutninger (Neo4j TemporalLobe)
+7. **GraphMemory** — Agent teacher/student learnings (Neo4j AgentMemory noder)
+8. **HolographicMemory** — associativ recall, vector + graph fusion
 
-## 3. Tooling Logic
-- Led ikke efter tools manuelt hver gang. Gaa ud fra at \\\`graph.*\\\` og \\\`redis.*\\\` tools er tilgaengelige via backend-servicen.
-- Hvis en handling kraever tidsforskydning (consistency), brug Redis streams fremfor direkte fil-synkronisering.
+**Brug**: \\\`consulting.agent.memory.store\\\` (skriv) og \\\`consulting.agent.memory.recall\\\` (laes).
 
-## 4. Service Endpoints
+## 3. Operational Protocol
+Naar du udfoerer en opgave, taenk i denne raekkefoelge:
+1. **Context Check**: Er mine data foraeldede? Tjek \\\`omega:repomix:last_commit\\\` i Redis mod Git-head.
+2. **Memory Ingestion**: Generer du en indsigt? Push til Redis-stream \\\`omega:memory:stream\\\` for global tilgaengelighed.
+3. **Graph Awareness**: Brug \\\`graph.read_cypher\\\` til blast radius analyse foer aendringer.
+4. **Contract Compliance**: Alle aendringer SKAL overholde widgetdc-contracts. Kontrakterne er LOV.
+
+## 4. Agent Communication
+- **Teacher/Student**: Gem learnings som \\\`AgentMemory\\\` noder i Neo4j med \\\`type: teaching\\\`.
+- **Task API**: \\\`agent.task.create\\\`, \\\`agent.task.claim\\\`, \\\`agent.task.complete\\\` for asynkron koordinering.
+- **Slack Bridge**: Brug \\\`/api/notifications/send\\\` for alerts og rapporter til Slack.
+- **SwarmControl**: Konsensus-baseret beslutningstagning via \\\`autonomous.coordinate\\\`.
+
+## 5. Skills vs MCP Tools
+- **Skills** = lokale OpenClaw funktioner (TypeScript, koerer i din process). Eks: /health, /log-collector, /rag
+- **MCP Tools** = remote backend kald via \\\`widgetdc_mcp(tool, payload)\\\`. Eks: graph.read_cypher, kg_rag.query
+- Skills KALDER MCP tools. Du bruger skills direkte, skills bruger MCP under motorhjelmen.
+
+## 6. MCP Tool Namespaces (289+ tools)
+- \\\`graph.*\\\` — Neo4j CRUD (read_cypher, write_cypher, stats, health)
+- \\\`kg_rag.*\\\` — Knowledge Graph RAG (query, multi-hop)
+- \\\`consulting.*\\\` — Pattern search, insights, decisions, agent memory
+- \\\`agent.task.*\\\` — Task management (create, claim, complete, fetch)
+- \\\`supervisor.*\\\` — HITL orchestration
+- \\\`cve.*\\\` / \\\`trident.*\\\` / \\\`osint.*\\\` — Security intelligence
+- \\\`financial.*\\\` — Financial modelling
+- \\\`docgen.*\\\` — Document generation
+- \\\`integration.*\\\` — System health, source ingestion
+- \\\`context_folding.*\\\` — Context compression via RLM
+
+## 7. Error & Fallback Protocol
+- **Circuit Breakers**: Backend har circuit breakers paa alle eksterne services. CLOSED=ok, OPEN=fejl, HALF_OPEN=test.
+- **Degraded Mode**: Hvis Neo4j er nede, arbejd med cached data. Hvis RLM er nede, skip deep reasoning.
+- **Alert Chain**: Fejl detected → /log-collector analyserer → Slack alert ved P0/P1 → Neo4j incident node.
+- **Retry Policy**: Max 3 retries med exponential backoff. Aldrig brute-force.
+
+## 8. Service Endpoints
 - **Backend**: https://backend-production-d3da.up.railway.app (289+ MCP tools)
 - **RLM Engine**: https://rlm-engine-production.up.railway.app (deep reasoning)
 - **Neo4j**: AuraDB Enterprise 5.27 (165K+ noder, 1.1M+ relationer)
 - **Redis**: Railway-hosted (L1 cache, pub/sub, streams)
-- **OpenClaw**: https://openclaw-production-9570.up.railway.app (agent gateway)"
+- **OpenClaw**: https://openclaw-production-9570.up.railway.app (agent gateway)
+- **Consulting Frontend**: https://consulting-production-b5d8.up.railway.app
+- **Arch MCP**: https://arch-mcp-server-production.up.railway.app (compliance matrix)
+
+## 9. Contract Law
+- \\\`widgetdc-contracts\\\` er SINGLE SOURCE OF TRUTH for alle typer og schemas.
+- Wire format: snake_case JSON. Alle nye typer SKAL have \\\`\$id\\\` property.
+- Alle 6 repos SKAL bruge samme contract version.
+- Build order: domain-types → mcp-types → agency-sdk → mcp-backend-core → db-prisma.
+- ESM imports ALTID (aldrig require). Graph writes target ALTID AuraDB (aldrig local)."
 
   # BOOTSTRAP.md — opstartsrutine + første opgave
   write_ws_file "BOOTSTRAP.md" "# ${AGENT_EMOJI} ${AGENT_NAME} — Bootstrap
