@@ -37,19 +37,22 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
-      - name: Trigger Railway Deploy via Webhook
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway
         env:
-          RAILWAY_WEBHOOK: ${{ secrets.RAILWAY_WEBHOOK }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY }}
         run: |
-          if [ -z "$RAILWAY_WEBHOOK" ]; then
-            echo "ℹ️ RAILWAY_WEBHOOK not set"
-            echo "Option 1: Add deploy webhook URL from Railway Dashboard"
-            echo "Option 2: Enable GitHub integration in Railway project settings"
-            echo ""
-            echo "To get webhook: Railway Dashboard → Project → Settings → Deploy Webhooks"
-            exit 0
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::error::RAILWAY secret not set — cannot deploy"
+            echo "Set RAILWAY secret in GitHub repo settings with a Railway API token"
+            exit 1
           fi
-          curl -X POST "$RAILWAY_WEBHOOK" \
-            -H "Content-Type: application/json" \
-            -d '{"ref": "${{ github.sha }}", "branch": "main"}'
-          echo "✅ Deploy triggered via webhook"
+          railway up \
+            --service openclaw \
+            --environment production
+          echo "✅ OpenClaw deployed to Railway"
