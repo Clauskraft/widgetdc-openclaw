@@ -608,7 +608,54 @@ Brug \\\`graph.read_cypher\\\` til at hente domain-specifik ekspertise.
 - Alle deliverables SKAL matche et DeliverableTemplate
 - Alle insights SKAL have IN_DOMAIN relation
 - Alle anbefalinger SKAL have SUPPORTS evidence
-- Ingen output uden kilde — hallucination = fejl"
+- Ingen output uden kilde — hallucination = fejl
+
+## 13. Advanced Agentic Patterns (Neo4j Gold-Layer)
+
+### A. Synaptic Reasoning Protocol
+- **Multi-Hop Discovery**: Ved komplekse fejl, brug \\\`kg_rag.query\\\` med \\\`depth: 3\\\`. Led efter \\\`SYNAPTIC_LINK\\\` relationer mellem \\\`TechnicalDebt\\\` og \\\`StrategicInsight\\\`.
+- **Insight Harvesting**: Efter hver loest P0/P1 fejl, SKAL agenten generere en \\\`StrategicInsight\\\` node med domaene-kode (f.eks. \\\`TEC\\\` eller \\\`CYB\\\`).
+- **Pattern Amplification**: Naar du finder et moenster der virker, gem det som \\\`KnowledgePattern\\\` med \\\`SUPPORTS\\\` relationer til evidens.
+
+### B. Persona & Domain Alignment
+- **Domain Codes**: Brug ALTID de officielle koder: \\\`STR\\\` (Strategy), \\\`FIN\\\` (Finance), \\\`CYB\\\` (Cyber), \\\`OPS\\\` (Operations), \\\`TEC\\\` (Tech).
+- **Template Enforcement**: Ved dokumentgenerering, hent \\\`DeliverableTemplate\\\` fra grafen. Brug ALDRIG egne formater hvis et officielt \\\`PMM_Template\\\` eksisterer.
+- **Agent Profile Match**: Tjek \\\`AgentProfile\\\` noder for domain-specifik ekspertise foer du svarer paa tvaer-domaene spoergsmaal.
+
+### C. The Mission Control Loop
+1. **Identify Mission**: Er dette \\\`Knowledge Extraction\\\`, \\\`System Refactor\\\` eller \\\`Incident Response\\\`?
+2. **Load Directives**: Hent \\\`AI_Directive\\\` noder tilknyttet missionen via \\\`HAS_DIRECTIVE\\\` relationen.
+3. **Check Constraints**: Hent \\\`AI_Constraint\\\` noder — disse er UFRAVIGELIGE regler.
+4. **Execute & Document**: Gem resultatet i \\\`AgentMemory\\\` med \\\`type: learning\\\` eller \\\`type: teaching\\\`.
+5. **Harvest Insight**: Generer \\\`StrategicInsight\\\` hvis resultatet har strategisk vaerdi.
+
+### D. Discovery-Audit Loop (InsightIntegrityGuard)
+VIGTIGT: Hvert svar du giver bliver automatisk scannet af InsightIntegrityGuard:
+
+**Trafiklysprotokel:**
+- **GROENT**: Du har citeret korrekt (f.eks. \\\`[Source: STR-429]\\\`). Alt OK.
+- **GULT**: Du har ret, men glemte at citere kilden. Auto-suggestion tilfojes.
+- **ROEDT**: Du hallucinerer — din beslutning strider mod \\\`AI_Constraint\\\` eller \\\`Contract Law\\\`. BLOKERET.
+
+**Saadan undgaar du ROEDT lys:**
+1. Brug ALTID \\\`[Source: DOMAIN-ID]\\\` format naar du refererer til viden fra grafen
+2. Kald \\\`kg_rag.query\\\` FOER du svarer paa strategiske spoergsmaal
+3. Tjek \\\`AI_Constraint\\\` noder for dit domaene foer du anbefaler aendringer
+4. Gentagne overtraedelser trigger en \\\`FailureMemory\\\` node knyttet til din agent
+
+### E. Teacher-Student Knowledge Flow
+- Naar du laerer noget: Gem som \\\`AgentMemory\\\` med \\\`type: teaching\\\`
+- Naar du starter session: Hent learnings fra ALLE agents: \\\`MATCH (m:AgentMemory) WHERE m.type = 'teaching' RETURN m\\\`
+- Kryds-agent laering: Brug \\\`TeachingEvent\\\` noder med \\\`LEARNED_FROM\\\` relationer
+- Lessons Learned: Check \\\`Lesson\\\` noder for historisk viden
+
+### F. Graph-First Decision Making
+Foer ENHVER beslutning:
+1. \\\`graph.read_cypher\\\` — hvad ved vi allerede?
+2. \\\`kg_rag.query\\\` — semantisk soegning for relateret viden
+3. \\\`consulting.pattern.search\\\` — er der et kendt moenster?
+4. Foerst DEREFTER: generer dit svar baseret paa evidens
+5. Tilfoej kilder: \\\`[Source: NODE_TYPE-ID]\\\` format"
 
   # BOOTSTRAP.md — opstartsrutine + første opgave
   write_ws_file "BOOTSTRAP.md" "# ${AGENT_EMOJI} ${AGENT_NAME} — Bootstrap
