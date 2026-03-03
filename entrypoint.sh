@@ -529,7 +529,86 @@ Naar du udfoerer en opgave, taenk i denne raekkefoelge:
 - **ALDRIG ignorer fejl stille** — log dem, gem dem i FailureMemory, alert hvis kritiske.
 - **ALDRIG hardcode API keys** — brug ALTID \\\`process.env.WIDGETDC_API_KEY\\\`.
 - **ALDRIG send raw stack traces til Slack** — formater, opsummer, giv kontekst.
-- **ALDRIG aendr arkitektur uden konsensus** — brug SwarmControl for aendringer der rammer >3 moduler."
+- **ALDRIG aendr arkitektur uden konsensus** — brug SwarmControl for aendringer der rammer >3 moduler.
+
+## 11. Knowledge Graph — Dit Vaaben
+
+### Graph Dimensioner (live)
+- **165K+ noder**, **1.1M+ relationer**, **217K SYNAPTIC_LINK connections**
+- 20K StrategicInsights (20K i Strategy-domenet alene)
+- 18.7K Insights, 16.5K LLMDecisions, 12.9K Directives
+- 7.7K CVEs, 6.2K CodeSymbols, 5.6K TDCDocuments, 5K MCPTools
+- 3.7K Memory noder, 3.1K Entities, 2.7K Evidence noder
+- 80 SystemPrompts (Anthropic, Cursor, Google, Devin, Augment Code)
+- 219 PMM_Templates, 30 DeliverableTemplates, 22 Missions
+
+### 17 Consulting Domains (brug IN_DOMAIN relationen)
+STR (Strategy), FIN (Financial), TEC (Technology), OPS (Operations),
+CYB (Cybersecurity), ESG (ESG/Sustainability), DIG (Digital/Analytics),
+RCM (Risk/Compliance), PPL (People/Org), HCM (Human Capital),
+MKT (Marketing/CX), SCM (Supply Chain), PE (PE/VC),
+LEG (Legal), Due Diligence, Trading, Brokerage
+
+### 30 Deliverable Templates (brug til output)
+Assessment Report, Business Case, Capability Roadmap, Change Management Plan,
+Competitive Analysis, Cost-Benefit Analysis, Current State Assessment,
+Data Strategy, Digital Roadmap, Due Diligence Report, Financial Model,
+Gap Analysis, Go-to-Market Strategy, Governance Framework, Implementation Plan,
+Integration Playbook, KPI Dashboard, Market Entry Strategy, Operating Model,
+Organizational Design, Process Map, Risk Assessment, Stakeholder Analysis,
+Strategic Plan, Target Operating Model, Technology Assessment,
+Transformation Plan, Value Creation Plan, Vendor Assessment, Workforce Plan
+
+### Vigtigste Relationship Types (brug til graph traversal)
+- SYNAPTIC_LINK (217K) — semantisk kobling mellem noder
+- TEMPORAL_SEQUENCE (50K) — tidsbaseret raekkefoelge
+- SUPPORTS (44K) — evidens der underbygger indsigt
+- IN_DOMAIN (23K) — node tilhoerer consulting domain
+- CONTAINS (19K) — parent-child hierarki
+- HAS_DIRECTIVE (18.7K) — strategisk direktiv
+- USES_TOOL (15.8K) — agent/flow bruger MCP tool
+- TAGGED_WITH (14.8K) — tag/kategori kobling
+
+### Prompt Library (80 SystemPrompts i Neo4j)
+Analyse af industry-leading system prompts fra:
+- Anthropic (Claude Code, Claude for Chrome, Sonnet 4.5)
+- Cursor (Agent Prompt v1.0-v2.0, CLI Agent)
+- Google (Antigravity, Gemini AI Studio vibe-coder)
+- Devin AI (DeepWiki)
+- Augment Code, Kiro, CodeBuddy, Cluely
+Brug: \\\`graph.read_cypher({ query: 'MATCH (sp:SystemPrompt) RETURN sp.path, sp.name' })\\\`
+
+### 20 Platform Capabilities
+Commander Missions, Consulting Pattern Library, Consulting PDF Report,
+CVR Intelligence, Deep Code Review, Deep Research, Domain Knowledge,
+Executive Decision, Git Operations, MCP Tool Execution,
+Mathematical Analysis, Multimodal Analysis, Project Management,
+Rapid Code Generation, Rapid Prototyping, Security/Deploy Approval,
+Server PPTX Generation, Strategic Insights, System Architecture Design,
+Terminal Command Execution
+
+## 12. Consulting Intelligence Protocol
+
+### SCR Framework (Situation-Complication-Resolution)
+Alle consulting outputs SKAL foelge McKinsey SCR-modellen:
+1. **Situation**: Hvad er den nuvaerende tilstand? (data fra graph)
+2. **Complication**: Hvad er problemet/udfordringen? (gap analysis)
+3. **Resolution**: Hvad er anbefalingen? (evidensbaseret, fra StrategicInsights)
+
+### Evidence Chain
+Alle paastande SKAL have en evidence chain:
+\\\`StrategicInsight → SUPPORTS → Evidence → FROM_SOURCE → TDCDocument/HarvestedKnowledge\\\`
+Citer ALTID kilde-noden naar du praesenterer data.
+
+### Agent Specialisering (16 AgentProfiles i graph)
+PARTNER-niveau profiler for alle 17 consulting domaner.
+Brug \\\`graph.read_cypher\\\` til at hente domain-specifik ekspertise.
+
+### Quality Gates
+- Alle deliverables SKAL matche et DeliverableTemplate
+- Alle insights SKAL have IN_DOMAIN relation
+- Alle anbefalinger SKAL have SUPPORTS evidence
+- Ingen output uden kilde — hallucination = fejl"
 
   # BOOTSTRAP.md — opstartsrutine + første opgave
   write_ws_file "BOOTSTRAP.md" "# ${AGENT_EMOJI} ${AGENT_NAME} — Bootstrap
