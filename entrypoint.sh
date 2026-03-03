@@ -106,7 +106,8 @@ if [ ! -f "${CONFIG_FILE}" ]; then
       "slack-bridge": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app" } },
       "cursor-sync": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app" } },
       "consulting-workflow": { "enabled": true },
-      "data-pipeline": { "enabled": true }
+      "data-pipeline": { "enabled": true },
+      "log-collector": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app", "RLM_ENGINE_URL": "https://rlm-engine-production.up.railway.app", "WIDGETDC_API_KEY": "${WIDGETDC_API_KEY}" } }
     }
   },
   "agents": {
@@ -132,15 +133,15 @@ if [ ! -f "${CONFIG_FILE}" ]; then
       }
     },
     "list": [
-      { "id": "main",         "default": true, "workspace": "${STATE_DIR}/workspace-main",         "name": "Kaptajn Klo",    "skills": ["widgetdc-mcp","graph","health","rag","rag-fasedelt","qmd","cicd","act","widgetdc-personas","widgetdc-setup","writer","slack-bridge","cursor-sync","consulting-workflow","memory-boot","rlm-events","orchestrator"],  "identity": { "name": "Kaptajn Klo",    "emoji": "🦞" },  "heartbeat": { "every": "1h", "target": "last" } },
-      { "id": "infra",        "workspace": "${STATE_DIR}/workspace-infra",        "name": "Jernfod",        "skills": ["widgetdc-mcp","health","graph","cicd"],                                   "identity": { "name": "Jernfod",        "emoji": "🦾" },  "heartbeat": { "every": "1h", "target": "last" } },
+      { "id": "main",         "default": true, "workspace": "${STATE_DIR}/workspace-main",         "name": "Kaptajn Klo",    "skills": ["widgetdc-mcp","graph","health","log-collector","rag","rag-fasedelt","qmd","cicd","act","widgetdc-personas","widgetdc-setup","writer","slack-bridge","cursor-sync","consulting-workflow","memory-boot","rlm-events","orchestrator"],  "identity": { "name": "Kaptajn Klo",    "emoji": "🦞" },  "heartbeat": { "every": "1h", "target": "last" } },
+      { "id": "infra",        "workspace": "${STATE_DIR}/workspace-infra",        "name": "Jernfod",        "skills": ["widgetdc-mcp","health","log-collector","graph","cicd"],                                   "identity": { "name": "Jernfod",        "emoji": "🦾" },  "heartbeat": { "every": "1h", "target": "last" } },
       { "id": "github",       "workspace": "${STATE_DIR}/workspace-github",       "name": "Repo Sherif",    "skills": ["widgetdc-mcp","cicd","graph"],                                            "identity": { "name": "Repo Sherif",    "emoji": "🤠" } },
       { "id": "data",         "workspace": "${STATE_DIR}/workspace-data",         "name": "Graf-Oktopus",   "skills": ["widgetdc-mcp","graph","rag","qmd","rag-fasedelt","data-pipeline"],                        "identity": { "name": "Graf-Oktopus",   "emoji": "🐙" } },
       { "id": "strategist",   "workspace": "${STATE_DIR}/workspace-strategist",   "name": "Stor-Bjoern",   "skills": ["widgetdc-mcp","rag","rag-fasedelt","graph","qmd","widgetdc-personas","consulting-workflow"],                        "identity": { "name": "Stor-Bjoern",   "emoji": "🐻" } },
       { "id": "security",     "workspace": "${STATE_DIR}/workspace-security",     "name": "Cyber-Vipera",  "skills": ["widgetdc-mcp","graph","rag"],                                             "identity": { "name": "Cyber-Vipera",  "emoji": "🐍" } },
       { "id": "analyst",      "workspace": "${STATE_DIR}/workspace-analyst",      "name": "Tal-Trold",     "skills": ["widgetdc-mcp","rag","graph","qmd"],                                       "identity": { "name": "Tal-Trold",     "emoji": "📊" } },
       { "id": "coder",        "workspace": "${STATE_DIR}/workspace-coder",        "name": "Kodehaj",       "skills": ["widgetdc-mcp","graph","cicd","cursor-sync"],                                            "identity": { "name": "Kodehaj",       "emoji": "🦈" } },
-      { "id": "orchestrator", "workspace": "${STATE_DIR}/workspace-orchestrator", "name": "Dirigenten",    "skills": ["widgetdc-mcp","graph","health","orchestrator","slack-bridge","memory-boot","rlm-events"],                                   "identity": { "name": "Dirigenten",    "emoji": "🎼" },  "heartbeat": { "every": "1h", "target": "last" } },
+      { "id": "orchestrator", "workspace": "${STATE_DIR}/workspace-orchestrator", "name": "Dirigenten",    "skills": ["widgetdc-mcp","graph","health","log-collector","orchestrator","slack-bridge","memory-boot","rlm-events"],                                   "identity": { "name": "Dirigenten",    "emoji": "🎼" },  "heartbeat": { "every": "1h", "target": "last" } },
       { "id": "documentalist","workspace": "${STATE_DIR}/workspace-documentalist","name": "Arkivar-Rex",   "skills": ["widgetdc-mcp","rag","qmd","graph","writer","consulting-workflow"],                              "identity": { "name": "Arkivar-Rex",   "emoji": "📚" } },
       { "id": "harvester",    "workspace": "${STATE_DIR}/workspace-harvester",    "name": "Stovsugeren",   "skills": ["widgetdc-mcp","rag","graph","data-pipeline"],                                             "identity": { "name": "Stovsugeren",   "emoji": "🌀" } },
       { "id": "contracts",    "workspace": "${STATE_DIR}/workspace-contracts",    "name": "Kontrakt-Karen","skills": ["widgetdc-mcp","graph","rag"],                                             "identity": { "name": "Kontrakt-Karen","emoji": "📋" } }
@@ -304,7 +305,7 @@ fi
 
 # ── Skill migration — tilføj nye skills til eksisterende config ──────
 # Kører altid (ikke kun første boot) for at sikre nye skills er aktiveret.
-MIGRATE_SKILLS=("widgetdc-setup" "writer" "orchestrator" "widgetdc-personas" "slack-bridge" "cursor-sync" "consulting-workflow" "data-pipeline")
+MIGRATE_SKILLS=("widgetdc-setup" "writer" "orchestrator" "widgetdc-personas" "slack-bridge" "cursor-sync" "consulting-workflow" "data-pipeline" "log-collector")
 for SKILL in "${MIGRATE_SKILLS[@]}"; do
   # Tjek om skill allerede er i config via grep
   if [ -f "${CONFIG_FILE}" ] && ! grep -q "\"${SKILL}\"" "${CONFIG_FILE}" 2>/dev/null; then
@@ -431,14 +432,40 @@ widgetdc_mcp(\"consulting.agent.memory.store\", {
 \`\`\`
 <!-- AUTO-GENERATED -->"
 
+  # ARCHITECTURE.md — faelles system arkitektur alle agenter SKAL kende
+  write_ws_file "ARCHITECTURE.md" "# System Architecture: Omega Sentinel & OpenClaw
+<!-- AUTO-GENERATED -->
+
+## 1. The Source of Truth (The Global Brain)
+- **Redis**: Fungerer som L1 Cache og asynkron transport (Pub/Sub). Alle hurtige status-tjek og freshness-validering (Git SHAs) SKAL tjekkes her foerst.
+- **Neo4j**: Fungerer som L2 Long-term Memory. Alle koderelationer, moduler og Serena Memories persisteres her.
+
+## 2. Operational Protocol
+Naar du (agenten) udfoerer en opgave, skal du altid taenke i denne raekkefoelge:
+1. **Context Check**: Er mine data foraeldede? Tjek \\\`omega:repomix:last_commit\\\` i Redis mod det lokale Git-head.
+2. **Memory Ingestion**: Hvis du genererer en indsigt (Serena-style), skal den pushes til Redis-streamen \\\`omega:memory:stream\\\` for at blive globalt tilgaengelig.
+3. **Graph Awareness**: Brug \\\`graph.read_cypher\\\` til at forstaa konsekvenserne (Blast Radius) af dine aendringer ved at koble kode-noder med eksisterende \\\`:Memory\\\` noder.
+
+## 3. Tooling Logic
+- Led ikke efter tools manuelt hver gang. Gaa ud fra at \\\`graph.*\\\` og \\\`redis.*\\\` tools er tilgaengelige via backend-servicen.
+- Hvis en handling kraever tidsforskydning (consistency), brug Redis streams fremfor direkte fil-synkronisering.
+
+## 4. Service Endpoints
+- **Backend**: https://backend-production-d3da.up.railway.app (289+ MCP tools)
+- **RLM Engine**: https://rlm-engine-production.up.railway.app (deep reasoning)
+- **Neo4j**: AuraDB Enterprise 5.27 (165K+ noder, 1.1M+ relationer)
+- **Redis**: Railway-hosted (L1 cache, pub/sub, streams)
+- **OpenClaw**: https://openclaw-production-9570.up.railway.app (agent gateway)"
+
   # BOOTSTRAP.md — opstartsrutine + første opgave
   write_ws_file "BOOTSTRAP.md" "# ${AGENT_EMOJI} ${AGENT_NAME} — Bootstrap
 Ved session-start, kør i rækkefølge:
-1. Læs VISION.md — fælles mål
+1. Læs VISION.md + ARCHITECTURE.md — fælles mål og systemarkitektur
 2. Indlæs memory: widgetdc_mcp consulting.agent.memory.recall agentId=${AGENT_ID}
 3. Tjek system: widgetdc_mcp integration.system_health (hvis tilgængeligt)
-4. Hent lessons: graph.read_cypher MATCH (l:Lesson) RETURN l.title, l.content LIMIT 5
-5. **Start arbejde:** Udfør din rolle — ${AGENT_ROLE}
+4. Context Check: Tjek omega:repomix:last_commit i Redis — er dine data friske?
+5. Hent lessons: graph.read_cypher MATCH (l:Lesson) RETURN l.title, l.content LIMIT 5
+6. **Start arbejde:** Udfør din rolle — ${AGENT_ROLE}
 <!-- AUTO-GENERATED -->"
 
   # HEARTBEAT.md — agent-specifik checklist (tom = skip; indhold = kør heartbeat)
@@ -489,8 +516,9 @@ setup_agent_workspace "main" "Omega Sentinel" "🛡️" \
   "Primær AI-konsulent og arkitektur-guardian. Alle 335 MCP tools og 165K graph-noder." \
   "- kg_rag.query, consulting.pattern.search/insight/decision, knowledge.search_claims
 - graph.read_cypher/stats/health, agent.task.*, supervisor.*
-- docgen.*, financial.*, osint.*, cve.*, trident.*" \
-  "widgetdc-mcp,graph,health,rag,rag-fasedelt,qmd,cicd,act,widgetdc-personas,widgetdc-setup,writer,slack-bridge,cursor-sync,consulting-workflow"
+- docgen.*, financial.*, osint.*, cve.*, trident.*
+- /log-collector (Railway fejllog intelligence)" \
+  "widgetdc-mcp,graph,health,log-collector,rag,rag-fasedelt,qmd,cicd,act,widgetdc-personas,widgetdc-setup,writer,slack-bridge,cursor-sync,consulting-workflow"
 
 setup_agent_workspace "github" "Repo Sherif" "🤠" \
   "GitHub & CI/CD vagt. Overvåger WidgeTDC, openclaw-railway-template, widgetdc-rlm-engine, widgetdc-contracts. Fuld git-adgang." \
@@ -511,9 +539,12 @@ setup_agent_workspace "infra" "Jernfod" "🦾" \
   "Railway infrastruktur monitor. Overvåger backend, rlm-engine, openclaw, activepieces, arch-mcp, consulting-frontend. Alert ved nedetid." \
   "- integration.system_health, integration.openclaw_health, integration.source_ingest
 - /health (fuld platform status)
+- /log-collector (Railway fejllog intelligence — collect, analyze, alert)
+- /log-collector sweep (fuld 30-min sweep)
+- /log-collector patterns (kendte fejlmønstre)
 - git.status, git.log (deploy triggers)
 - agent.task.fetch, agent.task.status" \
-  "widgetdc-mcp,health,graph,cicd"
+  "widgetdc-mcp,health,log-collector,graph,cicd"
 
 setup_agent_workspace "strategist" "Stor-Bjoern" "🐻" \
   "Strategisk synthesizer: 17K Insights, 10K StrategicInsights, 12K Directives." \
@@ -550,8 +581,9 @@ setup_agent_workspace "orchestrator" "Dirigenten" "🎼" \
   "- supervisor.status, supervisor.pause, supervisor.resume, supervisor.hitl.request, supervisor.hitl.response, supervisor.hitl.pending
 - supervisor.send_tool_result, supervisor.fold_context, supervisor.diagnostics, supervisor.boot_manifest
 - agent.task.create, agent.task.claim, agent.task.complete, agent.task.fail, agent.task.fetch, agent.task.log, agent.task.start, agent.task.status
-- integration.system_health, graph.read_cypher (L3Task, Lesson, AgentMemory)" \
-  "widgetdc-mcp,graph,health,orchestrator,slack-bridge"
+- integration.system_health, graph.read_cypher (L3Task, Lesson, AgentMemory)
+- /log-collector (Railway fejllog for infrastructure awareness)" \
+  "widgetdc-mcp,graph,health,log-collector,orchestrator,slack-bridge"
 
 setup_agent_workspace "documentalist" "Arkivar-Rex" "📚" \
   "Document generation og knowledge archiving: 5.589 TDCDocuments i Neo4j." \
@@ -629,10 +661,17 @@ Du overvåger Neo4j AuraDB (165K noder: 17K Insights, 7K MCPTools, 6K CVEs).
 Brug /graph til Cypher, /rag til semantisk søgning, /qmd til kompakte svar.
 $(echo "$MEMORY_BOOT" | sed 's/AGENT_ID/data/g')"
 
-write_soul "infra" "# Jernfod 🦾 — Infrastruktur monitor
+write_soul "infra" "# Jernfod 🦾 — Infrastruktur monitor & Log Intelligence
 Du overvåger alle Railway services: backend, rlm-engine, openclaw, frontend, consulting,
 llm-proxy, matrix-frontend, pgvector-db, steel-browser, arch-mcp, activepieces.
 Brug /health for systemstatus. Alert ved nedetid >30s eller latency >500ms.
+
+## Log Collector (din primære mission)
+Kør /log-collector ved hver heartbeat. Analysér fejlmønstre. Alert ved spikes.
+- /log-collector — quick sweep (sidste 5 min)
+- /log-collector sweep — fuld sweep (30 min)
+- /log-collector patterns — kendte fejlmønstre og frekvens
+- /log-collector history backend — fejlhistorik for specifik service
 $(echo "$MEMORY_BOOT" | sed 's/AGENT_ID/infra/g')"
 
 write_soul "strategist" "# Stor-Bjoern 🐻 — Strategisk indsigt synthesizer
