@@ -88,13 +88,13 @@ if [ ! -f "${CONFIG_FILE}" ]; then
     "entries": {
       "widgetdc-mcp": {
         "enabled": true,
-        "env": { "WIDGETDC_MCP_ENDPOINT": "https://backend-production-d3da.up.railway.app/api/mcp/route" }
+        "env": { "WIDGETDC_MCP_ENDPOINT": "https://backend-production-d3da.up.railway.app/api/mcp/route", "WIDGETDC_API_KEY": "${WIDGETDC_API_KEY}" }
       },
-      "graph": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app" } },
-      "health": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app", "RLM_ENGINE_URL": "https://rlm-engine-production.up.railway.app" } },
-      "rag": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app" } },
-      "rag-fasedelt": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app" } },
-      "qmd": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app" } },
+      "graph": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app", "WIDGETDC_API_KEY": "${WIDGETDC_API_KEY}" } },
+      "health": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app", "RLM_ENGINE_URL": "https://rlm-engine-production.up.railway.app", "WIDGETDC_API_KEY": "${WIDGETDC_API_KEY}" } },
+      "rag": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app", "WIDGETDC_API_KEY": "${WIDGETDC_API_KEY}" } },
+      "rag-fasedelt": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app", "WIDGETDC_API_KEY": "${WIDGETDC_API_KEY}" } },
+      "qmd": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app", "WIDGETDC_API_KEY": "${WIDGETDC_API_KEY}" } },
       "cicd": { "enabled": true, "env": { "GITHUB_TOKEN": "${GITHUB_TOKEN}", "GITHUB_OWNER": "Clauskraft" } },
       "act": { "enabled": true },
       "widgetdc-personas": { "enabled": true, "env": { "WIDGETDC_BACKEND_URL": "https://backend-production-d3da.up.railway.app" } },
@@ -255,6 +255,53 @@ if [ -f "${CONFIG_FILE}" ] && [ -n "${SLACK_APP_TOKEN}" ] && [ -n "${SLACK_BOT_T
   fi
 fi
 
+# ── WIDGETDC_API_KEY migration — inject auth key into ALL skill env configs ──────
+# Kører ALTID (eksisterende config på persistent volume mangler API key)
+if [ -f "${CONFIG_FILE}" ] && [ -n "${WIDGETDC_API_KEY:-}" ] && command -v node >/dev/null 2>&1; then
+  export CONFIG_FILE WIDGETDC_API_KEY
+  node -e "
+    const fs = require('fs');
+    const path = process.env.CONFIG_FILE;
+    const apiKey = process.env.WIDGETDC_API_KEY;
+    if (!apiKey) process.exit(0);
+    let cfg;
+    try { cfg = JSON.parse(fs.readFileSync(path, 'utf8')); } catch (e) { process.exit(0); }
+    const entries = cfg.skills?.entries || {};
+    let changed = 0;
+    for (const [name, skill] of Object.entries(entries)) {
+      if (!skill.env) skill.env = {};
+      if (skill.env.WIDGETDC_API_KEY !== apiKey) {
+        skill.env.WIDGETDC_API_KEY = apiKey;
+        changed++;
+      }
+    }
+    if (changed > 0) {
+      fs.writeFileSync(path, JSON.stringify(cfg, null, 2));
+      console.log('[entrypoint] Injected WIDGETDC_API_KEY into ' + changed + ' skill configs');
+    }
+  " 2>/dev/null || true
+fi
+
+# ── Agent name migration — Kaptajn Klo → Omega Sentinel ──────
+if [ -f "${CONFIG_FILE}" ] && grep -q '"Kaptajn Klo"' "${CONFIG_FILE}" 2>/dev/null && command -v node >/dev/null 2>&1; then
+  export CONFIG_FILE
+  node -e "
+    const fs = require('fs');
+    const path = process.env.CONFIG_FILE;
+    let cfg;
+    try { cfg = JSON.parse(fs.readFileSync(path, 'utf8')); } catch (e) { process.exit(0); }
+    const list = cfg.agents?.list || [];
+    for (const a of list) {
+      if (a.id === 'main' && a.name === 'Kaptajn Klo') {
+        a.name = 'Omega Sentinel';
+        a.identity = { name: 'Omega Sentinel', emoji: '🛡️' };
+      }
+    }
+    fs.writeFileSync(path, JSON.stringify(cfg, null, 2));
+    console.log('[entrypoint] Renamed main agent: Kaptajn Klo → Omega Sentinel');
+  " 2>/dev/null || true
+fi
+
 # ── Skill migration — tilføj nye skills til eksisterende config ──────
 # Kører altid (ikke kun første boot) for at sikre nye skills er aktiveret.
 MIGRATE_SKILLS=("widgetdc-setup" "writer" "orchestrator" "widgetdc-personas" "slack-bridge" "cursor-sync" "consulting-workflow" "data-pipeline")
@@ -265,7 +312,7 @@ for SKILL in "${MIGRATE_SKILLS[@]}"; do
     if command -v node >/dev/null 2>&1 && [ -f "${OPENCLAW_ENTRY:-/openclaw/dist/entry.js}" ]; then
       BACKEND_URL="https://backend-production-d3da.up.railway.app"
       RLM_URL="https://rlm-engine-production.up.railway.app"
-      SKILL_JSON="{\"enabled\":true,\"env\":{\"WIDGETDC_BACKEND_URL\":\"${BACKEND_URL}\",\"RLM_ENGINE_URL\":\"${RLM_URL}\"}}"
+      SKILL_JSON="{\"enabled\":true,\"env\":{\"WIDGETDC_BACKEND_URL\":\"${BACKEND_URL}\",\"RLM_ENGINE_URL\":\"${RLM_URL}\",\"WIDGETDC_API_KEY\":\"${WIDGETDC_API_KEY:-}\"}}"
       node "${OPENCLAW_ENTRY:-/openclaw/dist/entry.js}" config set "skills.entries.${SKILL}" "${SKILL_JSON}" 2>/dev/null \
         && echo "[entrypoint] Added skill to config: ${SKILL}" \
         || echo "[entrypoint] Could not add skill (will appear in workspace but needs manual enable): ${SKILL}"
@@ -438,8 +485,8 @@ MEM='Memory: widgetdc_mcp("consulting.agent.memory.recall",{"agentId":"AGID","li
 Lær: widgetdc_mcp("consulting.agent.memory.store",{"agentId":"AGID","content":"...","type":"learning"})
 <!-- AUTO-GENERATED -->'
 
-setup_agent_workspace "main" "Kaptajn Klo" "🦞" \
-  "Primær AI-konsulent og orkestrator. Alle 335 MCP tools og 165K graph-noder." \
+setup_agent_workspace "main" "Omega Sentinel" "🛡️" \
+  "Primær AI-konsulent og arkitektur-guardian. Alle 335 MCP tools og 165K graph-noder." \
   "- kg_rag.query, consulting.pattern.search/insight/decision, knowledge.search_claims
 - graph.read_cypher/stats/health, agent.task.*, supervisor.*
 - docgen.*, financial.*, osint.*, cve.*, trident.*" \
@@ -567,8 +614,8 @@ widgetdc_mcp("consulting.agent.memory.store", { agentId: "AGENT_ID", content: "i
 
 <!-- AUTO-GENERATED -->'
 
-write_soul "main" "# Kaptajn Klo 🦞 — Hoved-konsulent & orkestrator
-Du koordinerer alle 11 specialistagenter og besvarer konsulentspørgsmål med evidens fra Neo4j.
+write_soul "main" "# Omega Sentinel 🛡️ — Arkitektur-guardian & orkestrator
+Du er Omega Sentinel — omniscient architecture guardian. Du koordinerer alle 11 specialistagenter og besvarer spørgsmål med evidens fra Neo4j.
 Brug /rag til vidensøgning, /graph til Cypher-queries, /health til systemcheck.
 $(echo "$MEMORY_BOOT" | sed 's/AGENT_ID/main/g')"
 
