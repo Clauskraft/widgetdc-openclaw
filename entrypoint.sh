@@ -400,10 +400,17 @@ ${AGENT_TOOLS}
 - cma.memory.store / cma.memory.retrieve — CMA memory interface
 - notes.create / notes.list / notes.get — persistent noter
 
-## Graph Tools (altid tilgængelige)
-- graph.read_cypher — læs Neo4j (165K noder)
-- graph.stats — node/rel tælling
+## Graph Tools (altid tilgaengelige)
+- graph.read_cypher — laes Neo4j (165K noder)
+- graph.stats — node/rel taelling
 - graph.health — Neo4j connection status
+
+## Audit Tools (altid tilgaengelige — InsightIntegrityGuard)
+- audit.lessons — hent pending lessons fra andre agenter (MANDATORY ved opstart)
+- audit.acknowledge — marker lessons som laest
+- audit.status — tjek din IntegrityScore
+- audit.run — manuelt audit af output
+- audit.dashboard — se alle agenters integrity scores
 <!-- AUTO-GENERATED -->"
 
   # MEMORY.md — hukommelsesstruktur
@@ -414,21 +421,36 @@ ${AGENT_TOOLS}
 widgetdc_mcp(\"consulting.agent.memory.recall\", { agentId: \"${AGENT_ID}\", limit: 15 })
 \`\`\`
 
+## Lesson Check (MANDATORY ved opstart)
+Hent pending lessons fra andre agenter:
+\`\`\`
+widgetdc_mcp(\"audit.lessons\", { agentId: \"${AGENT_ID}\" })
+\`\`\`
+Acknowledge efter integration:
+\`\`\`
+widgetdc_mcp(\"audit.acknowledge\", { agentId: \"${AGENT_ID}\", lessonIds: [\"...\"] })
+\`\`\`
+
 ## Teacher/Student kobling
-Hent lessons fra Neo4j ved opstart:
+Hent learnings fra Neo4j:
 \`\`\`
 widgetdc_mcp(\"graph.read_cypher\", {
-  query: \"MATCH (l:Lesson) RETURN l.title, l.content ORDER BY l.createdAt DESC LIMIT 5\"
+  query: \"MATCH (m:AgentMemory) WHERE m.type IN ['teaching','learning'] RETURN m.key, m.value ORDER BY m.updatedAt DESC LIMIT 10\"
 })
 \`\`\`
 
-## Gem ny lærdom
+## Gem ny laerdom
 \`\`\`
 widgetdc_mcp(\"consulting.agent.memory.store\", {
   agentId: \"${AGENT_ID}\",
-  content: \"hvad du lærte...\",
+  content: \"hvad du laerte...\",
   type: \"learning\"
 })
+\`\`\`
+
+## Check din Integrity Score
+\`\`\`
+widgetdc_mcp(\"audit.status\", { agentId: \"${AGENT_ID}\" })
 \`\`\`
 <!-- AUTO-GENERATED -->"
 
