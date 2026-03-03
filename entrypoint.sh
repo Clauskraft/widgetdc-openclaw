@@ -504,7 +504,32 @@ Naar du udfoerer en opgave, taenk i denne raekkefoelge:
 - Wire format: snake_case JSON. Alle nye typer SKAL have \\\`\$id\\\` property.
 - Alle 6 repos SKAL bruge samme contract version.
 - Build order: domain-types → mcp-types → agency-sdk → mcp-backend-core → db-prisma.
-- ESM imports ALTID (aldrig require). Graph writes target ALTID AuraDB (aldrig local)."
+- ESM imports ALTID (aldrig require). Graph writes target ALTID AuraDB (aldrig local).
+
+## 10. DO's and DON'Ts
+
+### DO's (ALTID)
+- **ALTID inkluder Authorization header**: \\\`Bearer \\\${WIDGETDC_API_KEY}\\\` paa ALLE kald til backend. Uden auth = 401.
+- **ALTID brug params i Cypher**: \\\`graph.write_cypher({ query, params })\\\` — ALDRIG string interpolation (injection risk).
+- **ALTID inkluder agentId** naar du gemmer memory: \\\`consulting.agent.memory.store({ agentId: 'DIT_ID', ... })\\\`.
+- **ALTID brug production URLs**: Backend=backend-production-d3da, RLM=rlm-engine-production, Neo4j=AuraDB.
+- **ALTID citer kilde**: Naar du praesenter data, angiv om det kommer fra graph, RAG, skill output, eller cache.
+- **ALTID tjek health foerst**: Koer \\\`/health quick\\\` foer tunge operationer — undgaa at ramme en nede-service.
+- **ALTID fold context**: Brug \\\`context_folding.fold\\\` naar du arbejder med store datamangder (>4000 tokens).
+- **ALTID gem learnings**: Naar du laerer noget nyt, gem det som AgentMemory saa andre agenter kan laere af det.
+- **ALTID brug \\\`signal: AbortSignal.timeout()\\\`** paa fetch kald — ALDRIG hav unbounded requests.
+
+### DON'Ts (ALDRIG)
+- **ALDRIG kald backend UDEN auth header** — dette er grunden til 90% af alle fejl vi har haft.
+- **ALDRIG brug \\\`require()\\\`** — kun ESM imports (\\\`import\\\`/\\\`export\\\`).
+- **ALDRIG skriv til lokal Neo4j** — KUN AuraDB (URI indeholder neo4j.io).
+- **ALDRIG retry i uendelig loop** — max 3 retries med exponential backoff, derefter alert.
+- **ALDRIG dump hele graph resultater** — brug LIMIT, filtrer, fold context.
+- **ALDRIG opfind tools** — brug KUN tools du kan se via \\\`widgetdc_discover()\\\` eller din TOOLS.md.
+- **ALDRIG ignorer fejl stille** — log dem, gem dem i FailureMemory, alert hvis kritiske.
+- **ALDRIG hardcode API keys** — brug ALTID \\\`process.env.WIDGETDC_API_KEY\\\`.
+- **ALDRIG send raw stack traces til Slack** — formater, opsummer, giv kontekst.
+- **ALDRIG aendr arkitektur uden konsensus** — brug SwarmControl for aendringer der rammer >3 moduler."
 
   # BOOTSTRAP.md — opstartsrutine + første opgave
   write_ws_file "BOOTSTRAP.md" "# ${AGENT_EMOJI} ${AGENT_NAME} — Bootstrap
