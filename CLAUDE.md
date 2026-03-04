@@ -417,6 +417,40 @@ curl -u user:$SETUP_PASSWORD http://localhost:8080/setup/export -o backup.tar.gz
 9. **Credentials directory permissions** → Must be 700 (owner-only), not 755. Set during mkdir and enforce with explicit chmod.
 10. **Import requires /data paths** → `OPENCLAW_STATE_DIR` and `OPENCLAW_WORKSPACE_DIR` must be under `/data` for Railway volume security. Import validates this and shows detailed error with fix.
 
+## RLM Engine: A2A Protocol + Research Intelligence (2026-03-04)
+
+The RLM Engine now implements the **Google A2A protocol** for agent-to-agent task delegation and an **S1-S4 research intelligence pipeline**.
+
+### Agent Card Discovery
+- `GET https://rlm-engine-production.up.railway.app/.well-known/agent.json`
+- 9 skills: cognitive-reasoning, domain-analysis, research-curation, document-generation, context-folding, compliance-analysis, swarm-orchestration, knowledge-query, dreamscape
+
+### A2A Task Endpoints (Google A2A spec)
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| POST | `/a2a/tasks/send` | Send task (sync response) |
+| POST | `/a2a/tasks/sendSubscribe` | Send task with SSE streaming |
+| GET | `/a2a/tasks/{id}` | Get task status |
+| POST | `/a2a/tasks/{id}/cancel` | Cancel task |
+| GET | `/a2a/tasks` | List all tasks |
+
+### Research Intelligence (S1-S4 pipeline)
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| POST | `/research/curate` | arXiv paper fetch + LLM relevance scoring |
+| POST | `/research/discover-apis` | Discover from 22 curated external APIs |
+| POST | `/research/inject-apis` | Inject APIs into Neo4j graph |
+| GET | `/research/registry/stats` | API registry statistics |
+
+### New MCP Tools (registered in Neo4j)
+- **A2A**: `a2a.send_task`, `a2a.send_task_subscribe`, `a2a.agent_card`, `a2a.list_tasks`
+- **Research**: `research.curate`, `research.discover_apis`, `research.inject_apis`, `research.registry`
+
+### Protocol Stack
+- **MCP**: Agent -> Tools (existing, unchanged)
+- **A2A**: Agent -> Agent (NEW — task delegation, SSE streaming)
+- **ANP**: Agent -> Open Web (future — DID-based decentralized discovery)
+
 ## Agent Compliance Rules (ALL agents MUST follow)
 
 > **Master data**: Neo4j AuraDB + arch-mcp-server. These local rules are synced FROM graph truth.
