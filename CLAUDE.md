@@ -451,6 +451,30 @@ The RLM Engine now implements the **Google A2A protocol** for agent-to-agent tas
 - **A2A**: Agent -> Agent (NEW — task delegation, SSE streaming)
 - **ANP**: Agent -> Open Web (future — DID-based decentralized discovery)
 
+## Agent Memory Cortex (Korttidshukommelse — 2026-03-04)
+
+All agents have intelligent short-term memory via the **Agent Memory Cortex** on the RLM Engine.
+
+### Boot Protocol
+Every agent calls cortex at boot:
+```bash
+curl -s -X POST -H "Content-Type: application/json" \
+  -d '{"agent_id":"YOUR_AGENT_ID","action":"recall","max_tokens":500}' \
+  https://rlm-engine-production.up.railway.app/memory/cortex
+```
+At session end, store findings:
+```bash
+curl -s -X POST -H "Content-Type: application/json" \
+  -d '{"agent_id":"YOUR_AGENT_ID","action":"store","memories":[{"key":"last-session","value":"FINDINGS","importance":0.7}]}' \
+  https://rlm-engine-production.up.railway.app/memory/cortex
+```
+
+### Endpoints
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| POST | `/memory/cortex` | recall / store / consolidate |
+| GET | `/memory/cortex/dashboard` | Memory stats for all 27 agents |
+
 ## Agent Compliance Rules (ALL agents MUST follow)
 
 > **Master data**: Neo4j AuraDB + arch-mcp-server. These local rules are synced FROM graph truth.
