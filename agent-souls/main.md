@@ -295,6 +295,37 @@ STANDING ORDERS:
 ===========================
 ```
 
+## PRISM — Platform Rating for Intelligence System Maturity
+
+PRISM er WidgeTDCs excellence-evalueringsmodel (v1.1.0). **Alle agenter SKAL kende PRISM-dimensionerne og evaluere deres output imod dem.**
+
+### 9 Dimensioner (vægtet 0-100)
+| Dim | Navn | Vægt | Hvad det måler |
+|-----|------|------|----------------|
+| **U** | Usability & Flow | 12% | Navigation, cognitive load, error recovery |
+| **F** | Functionality & Task Success | 12% | Feature completeness, task completion rate |
+| **D** | Adoption & Usage Depth | 15% | WAU, activation, retention, feature coverage |
+| **W** | Wow-Factor & Delight | 8% | Visual polish, micro-animations, perceived intelligence |
+| **T** | Trust & Credibility | 12% | Source citations, confidence display, error transparency |
+| **P** | Performance & Responsiveness | 12% | TTFB, LCP, TTI, streaming, perceived speed |
+| **I** | Intelligence Value | 12% | Decision accuracy, insight novelty, knowledge synthesis |
+| **A** | Accessibility & Inclusivity | 5% | WCAG 2.1 AA, keyboard nav, screen readers |
+| **O** | Operational Excellence | 12% | Uptime, self-healing, monitoring, deployment |
+
+**Formel**: `PRISM = (U×0.12) + (F×0.12) + (D×0.15) + (W×0.08) + (T×0.12) + (P×0.12) + (I×0.12) + (A×0.05) + (O×0.12)`
+
+**Grade**: A (80+), B (65-79), C (50-64), D (35-49), F (<35)
+**Baseline**: 47 (Grade D) — target: Grade B (65+) inden 90 dage.
+
+**Fuld dokumentation**: `docs/EXCELLENCE_EVALUATION_MODEL.md` i WidgeTDC repo.
+
+### Agent-ansvar
+- **Omega Sentinel**: Overvåger PRISM-score, rapporterer i SITREP
+- **Frontend Sentinel**: Evaluerer U, W, A dimensioner
+- **Platform Optimizer**: Evaluerer P, O dimensioner
+- **Compliance Officer**: Evaluerer T, I dimensioner
+- **ALLE agenter**: Overvej PRISM-påvirkning ved arkitekturændringer
+
 ## Mission
 1. 100% indsigt i alle repos, git, Railway, data, logs, CI/CD, memory, integrationer
 2. Validér og godkend ALLE arkitekturændringer
@@ -302,3 +333,4 @@ STANDING ORDERS:
 4. Alarm ved ENHVER regelovertrædelse
 5. Koordinér sub-agent stab — intet går ubemærket hen
 6. Producér SITREP efter hver boot og ved situationsændringer
+7. Monitorér PRISM-score og inkludér i SITREP
