@@ -535,35 +535,43 @@ Naar du udfoerer en opgave, taenk i denne raekkefoelge:
 
 ## 10. DO's and DON'Ts
 
-### DO's (ALTID)
-- **ALTID inkluder Authorization header**: \\\`Bearer \\\${WIDGETDC_API_KEY}\\\` paa ALLE kald til backend. Uden auth = 401.
-- **ALTID brug params i Cypher**: \\\`graph.write_cypher({ query, params })\\\` — ALDRIG string interpolation (injection risk).
-- **ALTID inkluder agentId** naar du gemmer memory: \\\`consulting.agent.memory.store({ agentId: 'DIT_ID', ... })\\\`.
-- **ALTID brug production URLs**: Backend=backend-production-d3da, RLM=rlm-engine-production, Neo4j=AuraDB.
-- **ALTID citer kilde**: Naar du praesenter data, angiv om det kommer fra graph, RAG, skill output, eller cache.
-- **ALTID tjek health foerst**: Koer \\\`/health quick\\\` foer tunge operationer — undgaa at ramme en nede-service.
-- **ALTID fold context**: Brug \\\`context_folding.fold\\\` naar du arbejder med store datamangder (>4000 tokens).
-- **ALTID gem learnings**: Naar du laerer noget nyt, gem det som AgentMemory saa andre agenter kan laere af det.
-- **ALTID brug \\\`signal: AbortSignal.timeout()\\\`** paa fetch kald — ALDRIG hav unbounded requests.
-- **ALTID koer Lesson Check** (audit.lessons) foer du starter en mission — laer af andres fejl.
-- **ALTID brug \\\`[Source: CODE-ID]\\\`** format naar du refererer til StrategicInsights fra grafen.
-- **ALTID soeg eksternt** (GitHub, NPM, HuggingFace) naar Neo4j ikke har et direkte match — Research-First Mandate.
+### DO's (always)
+- Include Authorization header: \\\`Bearer \\\${WIDGETDC_API_KEY}\\\` on all backend calls. Without auth = 401.
+- Use params in Cypher: \\\`graph.write_cypher({ query, params })\\\` — never string interpolation (injection risk).
+- Include agentId when storing memory: \\\`consulting.agent.memory.store({ agentId: 'YOUR_ID', ... })\\\`.
+- Use production URLs: Backend=backend-production-d3da, RLM=rlm-engine-production, Neo4j=AuraDB.
+- Cite sources: when presenting data, indicate if it comes from graph, RAG, skill output, or cache.
+- Check health first: run \\\`/health quick\\\` before heavy operations — avoid hitting a down service.
+- Fold context: use \\\`context_folding.fold\\\` when working with large datasets (>4000 tokens).
+- Store learnings: when you learn something new, store it as AgentMemory so other agents can learn from it.
+- Use \\\`signal: AbortSignal.timeout()\\\` on fetch calls — never have unbounded requests.
+- Run Lesson Check (audit.lessons) before starting a mission — learn from others' mistakes.
+- Use \\\`[Source: CODE-ID]\\\` format when referencing StrategicInsights from the graph.
+- Search externally (GitHub, NPM, HuggingFace) when Neo4j has no direct match — Research-First Mandate.
+- **Verify every action**: every write, deploy, or change gets a verification step (read-back query, test run, render check).
+- **Fix all failures before concluding**: a run is not complete while any failure or failed test remains unresolved. Flaky tests are bugs — stabilize them.
+- **Reflect before returning**: after significant actions, pause and verify the output achieved its goal and complies with contracts.
+- **Store improvement backlog**: after each session, store top-1 improvement per area as \\\`:ImprovementOpportunity\\\` in Neo4j.
+- **Clean git state at session end**: no uncommitted changes, no untracked files, no stashes, no orphan branches.
 
-### DON'Ts (ALDRIG)
-- **ALDRIG kald backend UDEN auth header** — dette er grunden til 90% af alle fejl vi har haft.
-- **ALDRIG brug \\\`require()\\\`** — kun ESM imports (\\\`import\\\`/\\\`export\\\`).
-- **ALDRIG skriv til lokal Neo4j** — KUN AuraDB (URI indeholder neo4j.io).
-- **ALDRIG retry i uendelig loop** — max 3 retries med exponential backoff, derefter alert.
-- **ALDRIG dump hele graph resultater** — brug LIMIT, filtrer, fold context.
-- **ALDRIG opfind tools** — brug KUN tools du kan se via \\\`widgetdc_discover()\\\` eller din TOOLS.md.
-- **ALDRIG ignorer fejl stille** — log dem, gem dem i FailureMemory, alert hvis kritiske.
-- **ALDRIG hardcode API keys** — brug ALTID \\\`process.env.WIDGETDC_API_KEY\\\`.
-- **ALDRIG send raw stack traces til Slack** — formater, opsummer, giv kontekst.
-- **ALDRIG aendr arkitektur uden konsensus** — brug SwarmControl for aendringer der rammer >3 moduler.
-- **ALDRIG ignorer Lessons** fra audit.lessons — de repraesenterer fejl andre agenter har begaaet, saa DU undgaar dem.
-- **ALDRIG skriv >50 linjer custom logik** naar et velafproevet NPM-modul eller GitHub-moenster loeser opgaven.
-- **ALDRIG opfind arkitektur i isolation** — konsulter ALTID eksterne kilder som baseline (S1-4 flow).
-- **ALDRIG antag at en fejl er isoleret** — soeg ALTID efter \\\`SYNAPTIC_LINK\\\` mellem den nuvaerende fejl og tidligere \\\`FailureMemory\\\` noder i grafen FOER ekstern eskalering.
+### DON'Ts (never)
+- Call backend without auth header — this is the cause of 90% of all errors we have had.
+- Use \\\`require()\\\` — ESM imports only (\\\`import\\\`/\\\`export\\\`).
+- Write to local Neo4j — AuraDB only (URI contains neo4j.io).
+- Retry in infinite loop — max 3 retries with exponential backoff, then alert.
+- Dump entire graph results — use LIMIT, filter, fold context.
+- Invent tools — only use tools you can see via \\\`widgetdc_discover()\\\` or your TOOLS.md.
+- Ignore errors silently — log them, store in FailureMemory, alert if critical.
+- Hardcode API keys — always use \\\`process.env.WIDGETDC_API_KEY\\\`.
+- Send raw stack traces to Slack — format, summarize, provide context.
+- Change architecture without consensus — use SwarmControl for changes affecting >3 modules.
+- Ignore Lessons from audit.lessons — they represent errors other agents committed, so YOU avoid them.
+- Write >50 lines custom logic when a well-tested NPM module or GitHub pattern solves the task.
+- Architect in isolation — always consult external sources as baseline (S1-4 flow).
+- Assume an error is isolated — always search for \\\`SYNAPTIC_LINK\\\` between the current error and previous \\\`FailureMemory\\\` nodes in the graph before external escalation.
+- **End a session with unresolved failures or red tests** — fix them or document as \\\`:FailureMemory\\\` with status deferred.
+- **End a session with uncommitted changes, untracked files, stashes, or orphan branches** — commit, push, or clean up before concluding.
+- **Use ALL-CAPS enforcement language** in prompts — calm, direct language works better with frontier models.
 
 ## 11. Knowledge Graph — Dit Vaaben
 
