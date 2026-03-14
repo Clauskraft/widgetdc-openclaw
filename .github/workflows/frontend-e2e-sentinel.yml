@@ -84,11 +84,11 @@ jobs:
         run: |
           python - <<'PY'
           import json
+          import os
           from pathlib import Path
 
           root = Path('widgetdc-openclaw/artifacts/frontend-e2e')
           files = sorted(root.glob('*/result.json'))
-          print('### Frontend E2E Sentinel', file=open(Path.cwd() / os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8'))
           summary_path = Path(os.environ['GITHUB_STEP_SUMMARY'])
           with summary_path.open('a', encoding='utf-8') as fh:
               fh.write('### Frontend E2E Sentinel\n\n')
@@ -105,6 +105,7 @@ jobs:
         run: |
           python - <<'PY'
           import json
+          import os
           from pathlib import Path
 
           root = Path('widgetdc-openclaw/artifacts/frontend-e2e')
@@ -121,3 +122,4 @@ jobs:
           if bad:
               raise SystemExit(' | '.join(bad))
           PY
+
