@@ -117,15 +117,25 @@ async function firstVisibleLocator(page, selectors, timeoutMs = 15000) {
   return null;
 }
 
+function stepContext(ctx) {
+  return {
+    baseUrl: ctx.url,
+    runId: ctx.runId,
+    surface: ctx.surface,
+    flow: ctx.flow,
+  };
+}
+
 async function executeFlowStep(page, step, ctx, result) {
   const timeoutMs = Number(step.timeoutMs ?? 15000);
   const stepName = step.name ?? step.type;
   const record = { name: stepName, ok: false, detail: '' };
+  const context = stepContext(ctx);
 
   try {
     switch (step.type) {
       case 'goto': {
-        const targetUrl = resolveTemplate(step.url ?? ctx.url, { baseUrl: ctx.url, runId: ctx.runId, surface: ctx.surface, flow: ctx.flow });
+        const targetUrl = resolveTemplate(step.url ?? ctx.url, context);
         const response = await page.goto(targetUrl, { waitUntil: step.waitUntil ?? 'networkidle', timeout: timeoutMs });
         record.ok = !!response;
         record.detail = `status=${response?.status() ?? 'none'} url=${targetUrl}`;
@@ -134,16 +144,16 @@ async function executeFlowStep(page, step, ctx, result) {
       case 'waitForAnyVisible': {
         const locator = await firstVisibleLocator(page, step.selectors ?? [], timeoutMs);
         record.ok = !!locator;
-        record.detail = locator ? `visible=${step.selectors.join(' | ')}` : `not found: ${step.selectors.join(' | ')}`;
+        record.detail = locator ? `visible=${(step.selectors ?? []).join(' | ')}` : `not found: ${(step.selectors ?? []).join(' | ')}`;
         break;
       }
       case 'fillFirstVisible': {
         const locator = await firstVisibleLocator(page, step.selectors ?? [], timeoutMs);
         if (!locator) {
-          record.detail = `not found: ${step.selectors.join(' | ')}`;
+          record.detail = `not found: ${(step.selectors ?? []).join(' | ')}`;
           break;
         }
-        const value = step.valueFromEnv ? process.env[step.valueFromEnv] : resolveTemplate(step.value ?? '', { baseUrl: ctx.url, runId: ctx.runId, surface: ctx.surface, flow: ctx.flow });
+        const value = step.valueFromEnv ? process.env[step.valueFromEnv] : resolveTemplate(step.value ?? '', context);
         if (!value) {
           throw new Error(`Missing value for step ${stepName}`);
         }
@@ -155,7 +165,7 @@ async function executeFlowStep(page, step, ctx, result) {
       case 'clickFirstVisible': {
         const locator = await firstVisibleLocator(page, step.selectors ?? [], timeoutMs);
         if (!locator) {
-          record.detail = `not found: ${step.selectors.join(' | ')}`;
+          record.detail = `not found: ${(step.selectors ?? []).join(' | ')}`;
           break;
         }
         await locator.click({ timeout: timeoutMs });
@@ -163,14 +173,13 @@ async function executeFlowStep(page, step, ctx, result) {
           await page.waitForTimeout(Number(step.waitAfterMs));
         }
         record.ok = true;
-        record.detail = `clicked ${step.selectors.join(' | ')}`;
+        record.detail = `clicked ${(step.selectors ?? []).join(' | ')}`;
         break;
       }
       case 'doubleClickFirstVisible': {
         const locator = await firstVisibleLocator(page, step.selectors ?? [], timeoutMs);
         if (!locator) {
-          record.detail = 
-ot found: ;
+          record.detail = `not found: ${(step.selectors ?? []).join(' | ')}`;
           break;
         }
         await locator.dblclick({ timeout: timeoutMs });
@@ -178,13 +187,13 @@ ot found: ;
           await page.waitForTimeout(Number(step.waitAfterMs));
         }
         record.ok = true;
-        record.detail = double-clicked ;
+        record.detail = `double-clicked ${(step.selectors ?? []).join(' | ')}`;
         break;
       }
       case 'pressFirstVisible': {
         const locator = await firstVisibleLocator(page, step.selectors ?? [], timeoutMs);
         if (!locator) {
-          record.detail = `not found: ${step.selectors.join(' | ')}`;
+          record.detail = `not found: ${(step.selectors ?? []).join(' | ')}`;
           break;
         }
         await locator.press(step.key ?? 'Enter');
@@ -195,44 +204,39 @@ ot found: ;
       case 'assertValueFirstVisible': {
         const locator = await firstVisibleLocator(page, step.selectors ?? [], timeoutMs);
         if (!locator) {
-          record.detail = 
-ot found: ;
+          record.detail = `not found: ${(step.selectors ?? []).join(' | ')}`;
           break;
         }
         const actual = await locator.inputValue({ timeout: timeoutMs });
-        const expected = String(resolveTemplate(step.value ?? '', process.env));
+        const expected = String(resolveTemplate(step.value ?? '', context));
         record.ok = actual === expected;
-        record.detail = xpected= actual=;
+        record.detail = `expected=${expected} actual=${actual}`;
         break;
       }
       case 'assertAttributeFirstVisible': {
         const locator = await firstVisibleLocator(page, step.selectors ?? [], timeoutMs);
         if (!locator) {
-          record.detail = 
-ot found: ;
+          record.detail = `not found: ${(step.selectors ?? []).join(' | ')}`;
           break;
         }
         const attributeName = String(step.attribute ?? '');
         const actual = await locator.getAttribute(attributeName, { timeout: timeoutMs });
-        const expected = String(resolveTemplate(step.value ?? '', process.env));
+        const expected = String(resolveTemplate(step.value ?? '', context));
         record.ok = actual === expected;
-        record.detail = ttribute= expected= actual=;
+        record.detail = `attribute=${attributeName} expected=${expected} actual=${actual}`;
         break;
       }
       case 'waitForText': {
-        await page.waitForFunction(
-          ({ text }) => document.body?.innerText?.includes(text),
-          { text: String(resolveTemplate(step.text ?? '', process.env)) },
-          { timeout: timeoutMs },
-        );
+        const expectedText = String(resolveTemplate(step.text ?? '', context));
+        await page.waitForFunction(({ text }) => document.body?.innerText?.includes(text), { text: expectedText }, { timeout: timeoutMs });
         record.ok = true;
-        record.detail = `text found: ${step.text}`;
+        record.detail = `text found: ${expectedText}`;
         break;
       }
       case 'assertNoVisible': {
         const locator = await firstVisibleLocator(page, step.selectors ?? [], Math.min(timeoutMs, 2000));
         record.ok = !locator;
-        record.detail = locator ? `unexpected visible selector: ${step.selectors.join(' | ')}` : 'no forbidden selectors visible';
+        record.detail = locator ? `unexpected visible selector: ${(step.selectors ?? []).join(' | ')}` : 'no forbidden selectors visible';
         break;
       }
       default:
@@ -359,4 +363,3 @@ main().catch((error) => {
   console.error(error);
   process.exit(1);
 });
-
