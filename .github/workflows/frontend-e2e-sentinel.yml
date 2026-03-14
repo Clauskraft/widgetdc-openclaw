@@ -1,0 +1,123 @@
+name: Frontend E2E Sentinel
+
+on:
+  schedule:
+    - cron: '0 */3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: frontend-e2e-sentinel
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  railway-browser-flows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      LIBRECHAT_TEST_EMAIL: ${{ secrets.LIBRECHAT_TEST_EMAIL }}
+      LIBRECHAT_TEST_PASSWORD: ${{ secrets.LIBRECHAT_TEST_PASSWORD }}
+      CANVAS_BASE_URL: ${{ vars.CANVAS_BASE_URL || 'https://canwas-frontend-production.up.railway.app' }}
+    steps:
+      - name: Checkout OpenClaw
+        uses: actions/checkout@v4
+        with:
+          path: widgetdc-openclaw
+
+      - name: Checkout LibreChat flows
+        uses: actions/checkout@v4
+        with:
+          repository: Clauskraft/widgetdc-librechat
+          path: widgetdc-librechat
+
+      - name: Checkout Canvas flows
+        uses: actions/checkout@v4
+        with:
+          repository: Clauskraft/widgetdc-canvas
+          path: widgetdc-canvas
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: widgetdc-openclaw/package-lock.json
+
+      - name: Install OpenClaw dependencies
+        working-directory: widgetdc-openclaw
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        working-directory: widgetdc-openclaw
+        run: npx playwright install --with-deps chromium
+
+      - name: Run LibreChat frontend E2E flow
+        id: librechat
+        continue-on-error: true
+        working-directory: widgetdc-openclaw
+        run: >-
+          node scripts/frontend-e2e-runner.mjs
+          --flowFile ../widgetdc-librechat/test-payloads/frontend-e2e/librechat-production-login-chat-smoke.json
+
+      - name: Run Canvas frontend E2E flow
+        id: canvas
+        continue-on-error: true
+        working-directory: widgetdc-openclaw
+        run: >-
+          node scripts/frontend-e2e-runner.mjs
+          --flowFile ../widgetdc-canvas/test-payloads/frontend-e2e/canvas-production-smoke.json
+
+      - name: Upload frontend E2E artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-e2e-artifacts
+          path: widgetdc-openclaw/artifacts/frontend-e2e
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Summarize results
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path('widgetdc-openclaw/artifacts/frontend-e2e')
+          files = sorted(root.glob('*/result.json'))
+          print('### Frontend E2E Sentinel', file=open(Path.cwd() / os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8'))
+          summary_path = Path(os.environ['GITHUB_STEP_SUMMARY'])
+          with summary_path.open('a', encoding='utf-8') as fh:
+              fh.write('### Frontend E2E Sentinel\n\n')
+              if not files:
+                  fh.write('- No result artifacts found\n')
+              for result_file in files:
+                  data = json.loads(result_file.read_text(encoding='utf-8'))
+                  fh.write(f"- {data['surface']}: {data['status']} — {data['summary']}\n")
+          PY
+
+      - name: Fail workflow on non-pass result
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path('widgetdc-openclaw/artifacts/frontend-e2e')
+          files = sorted(root.glob('*/result.json'))
+          if not files:
+              raise SystemExit('No frontend E2E result artifacts found')
+
+          bad = []
+          for result_file in files:
+              data = json.loads(result_file.read_text(encoding='utf-8'))
+              if data.get('status') != 'PASS':
+                  bad.append(f"{data.get('surface')}: {data.get('status')} — {data.get('summary')}")
+
+          if bad:
+              raise SystemExit(' | '.join(bad))
+          PY

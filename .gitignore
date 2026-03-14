@@ -18,3 +18,5 @@ npm-debug.log*
 .serena/
 .tmpdata/
 .tmp/
+artifacts/
+
