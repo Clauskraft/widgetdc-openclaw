@@ -30,6 +30,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: Clauskraft/widgetdc-librechat
+          token: ${{ secrets.GH_PAT }}
           path: widgetdc-librechat
 
       - name: Checkout Canvas flows
