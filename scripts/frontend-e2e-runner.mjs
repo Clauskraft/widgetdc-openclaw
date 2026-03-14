@@ -166,6 +166,21 @@ async function executeFlowStep(page, step, ctx, result) {
         record.detail = `clicked ${step.selectors.join(' | ')}`;
         break;
       }
+      case 'doubleClickFirstVisible': {
+        const locator = await firstVisibleLocator(page, step.selectors ?? [], timeoutMs);
+        if (!locator) {
+          record.detail = 
+ot found: ;
+          break;
+        }
+        await locator.dblclick({ timeout: timeoutMs });
+        if (step.waitAfterMs) {
+          await page.waitForTimeout(Number(step.waitAfterMs));
+        }
+        record.ok = true;
+        record.detail = double-clicked ;
+        break;
+      }
       case 'pressFirstVisible': {
         const locator = await firstVisibleLocator(page, step.selectors ?? [], timeoutMs);
         if (!locator) {
@@ -175,6 +190,33 @@ async function executeFlowStep(page, step, ctx, result) {
         await locator.press(step.key ?? 'Enter');
         record.ok = true;
         record.detail = `pressed ${step.key ?? 'Enter'}`;
+        break;
+      }
+      case 'assertValueFirstVisible': {
+        const locator = await firstVisibleLocator(page, step.selectors ?? [], timeoutMs);
+        if (!locator) {
+          record.detail = 
+ot found: ;
+          break;
+        }
+        const actual = await locator.inputValue({ timeout: timeoutMs });
+        const expected = String(resolveTemplate(step.value ?? '', process.env));
+        record.ok = actual === expected;
+        record.detail = xpected= actual=;
+        break;
+      }
+      case 'assertAttributeFirstVisible': {
+        const locator = await firstVisibleLocator(page, step.selectors ?? [], timeoutMs);
+        if (!locator) {
+          record.detail = 
+ot found: ;
+          break;
+        }
+        const attributeName = String(step.attribute ?? '');
+        const actual = await locator.getAttribute(attributeName, { timeout: timeoutMs });
+        const expected = String(resolveTemplate(step.value ?? '', process.env));
+        record.ok = actual === expected;
+        record.detail = ttribute= expected= actual=;
         break;
       }
       case 'waitForText': {
@@ -317,3 +359,4 @@ main().catch((error) => {
   console.error(error);
   process.exit(1);
 });
+
