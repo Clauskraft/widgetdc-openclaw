@@ -223,17 +223,15 @@ async function consolidateMemories(agentId: string): Promise<{
     const archivalId = `archival_${agentId}_${Date.now()}`;
     await widgetdc_mcp('graph.write_cypher', {
       query: `
-        CREATE (m:AgentMemory {
-          id: $id,
-          agentId: $agentId,
-          value: $summary,
-          type: 'consolidated',
-          tier: 'archival',
-          consolidatedFrom: $count,
-          consolidatedIds: $ids,
-          createdAt: datetime(),
-          updatedAt: datetime()
-        })
+        MERGE (m:AgentMemory {id: $id})
+        SET m.agentId = $agentId,
+            m.value = $summary,
+            m.type = 'consolidated',
+            m.tier = 'archival',
+            m.consolidatedFrom = $count,
+            m.consolidatedIds = $ids,
+            m.createdAt = datetime(),
+            m.updatedAt = datetime()
       `,
       params: {
         id: archivalId,
@@ -584,16 +582,14 @@ export async function memoryStore(
   try {
     await widgetdc_mcp('graph.write_cypher', {
       query: `
-        CREATE (m:AgentMemory {
-          id: $id,
-          agentId: $agentId,
-          value: $content,
-          type: $type,
-          tier: $tier,
-          createdAt: datetime(),
-          updatedAt: datetime(),
-          version: 1
-        })
+        MERGE (m:AgentMemory {id: $id})
+        SET m.agentId = $agentId,
+            m.value = $content,
+            m.type = $type,
+            m.tier = $tier,
+            m.createdAt = datetime(),
+            m.updatedAt = datetime(),
+            m.version = 1
       `,
       params: { id: memoryId, agentId, content, type, tier },
     });
@@ -698,15 +694,13 @@ export async function distributeLesson(
   // Save lesson to Neo4j
   await widgetdc_mcp('graph.write_cypher', {
     query: `
-      CREATE (l:Lesson {
-        id: $id,
-        title: $title,
-        content: $content,
-        source: $source,
-        domain: $domain,
-        createdAt: datetime(),
-        distributed: true
-      })
+      MERGE (l:Lesson {id: $id})
+      SET l.title = $title,
+          l.content = $content,
+          l.source = $source,
+          l.domain = $domain,
+          l.createdAt = datetime(),
+          l.distributed = true
     `,
     params: {
       id: `lesson_${Date.now()}`,

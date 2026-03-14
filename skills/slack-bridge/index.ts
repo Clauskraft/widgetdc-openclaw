@@ -164,14 +164,13 @@ export async function sendAgentMessage(msg: AgentMessage): Promise<{ sent: boole
   try {
     await widgetdc_mcp('graph.write_cypher', {
       query: `
-        CREATE (m:AgentMessage {
-          id: $messageId,
-          fromAgent: $from,
-          toAgent: $to,
-          message: $message,
-          priority: $priority,
-          replyTo: $replyTo,
-          threadId: $threadId,
+        MERGE (m:AgentMessage {id: $messageId})
+        SET m.fromAgent = $from,
+            m.toAgent = $to,
+            m.message = $message,
+            m.priority = $priority,
+            m.replyTo = $replyTo,
+            m.threadId = $threadId,
           timestamp: datetime()
         })
       `,
@@ -343,15 +342,13 @@ export async function kanbanCreate(task: {
 
   await widgetdc_mcp('graph.write_cypher', {
     query: `
-      CREATE (t:KanbanTask {
-        id: $id,
-        title: $title,
-        status: $status,
-        assignee: $assignee,
-        priority: $priority,
-        createdAt: datetime(),
-        updatedAt: datetime()
-      })
+      MERGE (t:KanbanTask {id: $id})
+      SET t.title = $title,
+          t.status = $status,
+          t.assignee = $assignee,
+          t.priority = $priority,
+          t.createdAt = datetime(),
+          t.updatedAt = datetime()
     `,
     params: newTask,
   });

@@ -55,12 +55,9 @@ async function logHealthIssue(issues: string[], overall: string): Promise<void> 
 
     await widgetdc_mcp('graph.write_cypher', {
       query: `
-        CREATE (h:HealthEvent {
-          timestamp: datetime(),
-          overall: $overall,
-          issues: $issues,
-          issueCount: $issueCount
-        })
+        MERGE (h:HealthEvent {overall: $overall, issueCount: $issueCount})
+        SET h.timestamp = datetime(),
+            h.issues = $issues
       `,
       params: {
         overall,

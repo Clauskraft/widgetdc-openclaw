@@ -266,20 +266,17 @@ async function storeErrorLog(entry: LogEntry): Promise<void> {
         p.count = p.count + 1,
         p.lastSeen = datetime()
 
-      CREATE (e:ErrorLog {
-        timestamp: datetime($timestamp),
-        service: $service,
-        level: $level,
-        message: $message,
-        metadata: $metadata,
-        fingerprint: $fingerprint
-      })
+      MERGE (e:ErrorLog {fingerprint: $fingerprint, timestamp: datetime($timestamp)})
+      SET e.service = $service,
+          e.level = $level,
+          e.message = $message,
+          e.metadata = $metadata
 
       MERGE (s:Service {id: $service})
       ON CREATE SET s.name = $service, s.firstSeen = datetime()
 
-      CREATE (s)-[:PRODUCED]->(e)
-      CREATE (e)-[:MATCHES]->(p)
+      MERGE (s)-[:PRODUCED]->(e)
+      MERGE (e)-[:MATCHES]->(p)
     `,
     params: {
       fingerprint: fp,
@@ -302,13 +299,10 @@ async function storeServiceStatus(serviceId: string, reachable: boolean, latency
           s.reachable = $reachable,
           s.latencyMs = $latencyMs
 
-      CREATE (c:ServiceCheck {
-        timestamp: datetime(),
-        serviceId: $serviceId,
-        reachable: $reachable,
-        latencyMs: $latencyMs
-      })
-      CREATE (s)-[:HAS_CHECK]->(c)
+      MERGE (c:ServiceCheck {serviceId: $serviceId, timestamp: datetime()})
+      SET c.reachable = $reachable,
+          c.latencyMs = $latencyMs
+      MERGE (s)-[:HAS_CHECK]->(c)
     `,
     params: { serviceId, reachable, latencyMs },
   });

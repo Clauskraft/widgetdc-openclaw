@@ -111,19 +111,17 @@ export async function transferTo(
   // Store packet to Neo4j
   await widgetdc_mcp('graph.write_cypher', {
     query: `
-      CREATE (k:KnowledgePacket {
-        id: $id,
-        type: $type,
-        title: $title,
-        content: $content,
-        domain: $domain,
-        confidence: $confidence,
-        sourceAgent: $sourceAgent,
-        sourceTimestamp: datetime(),
-        version: $version,
-        tags: $tags,
-        priority: $priority
-      })
+      MERGE (k:KnowledgePacket {id: $id})
+      SET k.type = $type,
+          k.title = $title,
+          k.content = $content,
+          k.domain = $domain,
+          k.confidence = $confidence,
+          k.sourceAgent = $sourceAgent,
+          k.sourceTimestamp = datetime(),
+          k.version = $version,
+          k.tags = $tags,
+          k.priority = $priority
     `,
     params: {
       id: packet.id,
@@ -161,12 +159,10 @@ export async function transferTo(
         query: `
           MATCH (k:KnowledgePacket {id: $packetId})
           MERGE (a:Agent {id: $agentId})
-          CREATE (k)-[:TRANSFERRED_TO {
-            timestamp: datetime(),
-            relevance: $relevance,
-            priority: $priority,
-            acknowledged: false
-          }]->(a)
+          MERGE (k)-[:TRANSFERRED_TO]->(a)
+          SET k.transferTimestamp = datetime(),
+              k.transferRelevance = $relevance,
+              k.transferPriority = $priority
         `,
         params: {
           packetId: packet.id,
@@ -185,14 +181,12 @@ export async function transferTo(
   // Log transfer event
   await widgetdc_mcp('graph.write_cypher', {
     query: `
-      CREATE (t:KnowledgeTransfer {
-        packetId: $packetId,
-        fromAgent: $fromAgent,
-        toAgents: $toAgents,
-        accepted: $accepted,
-        rejected: $rejected,
-        timestamp: datetime()
-      })
+      MERGE (t:KnowledgeTransfer {packetId: $packetId})
+      SET t.fromAgent = $fromAgent,
+          t.toAgents = $toAgents,
+          t.accepted = $accepted,
+          t.rejected = $rejected,
+          t.timestamp = datetime()
     `,
     params: {
       packetId: packet.id,
@@ -262,15 +256,13 @@ export async function requestKnowledge(
   // Log request
   await widgetdc_mcp('graph.write_cypher', {
     query: `
-      CREATE (r:KnowledgeRequest {
-        id: $requestId,
-        fromAgent: $fromAgent,
-        toAgent: $toAgent,
-        query: $query,
-        domain: $domain,
-        timestamp: datetime(),
-        status: 'pending'
-      })
+      MERGE (r:KnowledgeRequest {id: $requestId})
+      SET r.fromAgent = $fromAgent,
+          r.toAgent = $toAgent,
+          r.query = $query,
+          r.domain = $domain,
+          r.timestamp = datetime(),
+          r.status = 'pending'
     `,
     params: { requestId, fromAgent, toAgent, query, domain: domain ?? 'general' },
   }).catch(() => {});

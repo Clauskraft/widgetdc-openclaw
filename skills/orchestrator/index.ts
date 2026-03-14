@@ -375,13 +375,11 @@ export async function executeChain(config: ChainConfig): Promise<ChainResult> {
   // Log chain start to Neo4j
   await widgetdc_mcp('graph.write_cypher', {
     query: `
-      CREATE (c:AgentChain {
-        id: $chainId,
-        name: $name,
-        status: 'running',
-        stepCount: $stepCount,
-        startedAt: datetime()
-      })
+      MERGE (c:AgentChain {id: $chainId})
+      SET c.name = $name,
+          c.status = 'running',
+          c.stepCount = $stepCount,
+          c.startedAt = datetime()
     `,
     params: { chainId, name: config.name, stepCount: config.steps.length },
   }).catch(() => {});

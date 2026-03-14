@@ -97,15 +97,13 @@ async function handleContextFolded(event: IntelligenceEvent): Promise<void> {
   try {
     await widgetdc_mcp('graph.write_cypher', {
       query: `
-        CREATE (e:ContextFoldEvent {
-          timestamp: datetime(),
-          traceId: $traceId,
-          originalTokens: $originalTokens,
-          foldedTokens: $foldedTokens,
-          compressionRatio: $compressionRatio,
-          domain: $domain,
-          agentId: $agentId
-        })
+        MERGE (e:ContextFoldEvent {traceId: $traceId})
+        SET e.timestamp = datetime(),
+            e.originalTokens = $originalTokens,
+            e.foldedTokens = $foldedTokens,
+            e.compressionRatio = $compressionRatio,
+            e.domain = $domain,
+            e.agentId = $agentId
       `,
       params: {
         traceId: event.trace_id ?? null,
@@ -131,16 +129,14 @@ async function handleRoutingDecision(event: IntelligenceEvent): Promise<void> {
   try {
     await widgetdc_mcp('graph.write_cypher', {
       query: `
-        CREATE (e:RoutingDecisionEvent {
-          timestamp: datetime(),
-          traceId: $traceId,
-          provider: $provider,
-          model: $model,
-          domain: $domain,
-          latencyMs: $latencyMs,
-          cost: $cost,
-          reason: $reason
-        })
+        MERGE (e:RoutingDecisionEvent {traceId: $traceId})
+        SET e.timestamp = datetime(),
+            e.provider = $provider,
+            e.model = $model,
+            e.domain = $domain,
+            e.latencyMs = $latencyMs,
+            e.cost = $cost,
+            e.reason = $reason
       `,
       params: {
         traceId: event.trace_id ?? null,
@@ -161,14 +157,12 @@ async function handleRecommendationReady(event: IntelligenceEvent): Promise<void
   try {
     await widgetdc_mcp('graph.write_cypher', {
       query: `
-        CREATE (e:RecommendationEvent {
-          timestamp: datetime(),
-          traceId: $traceId,
-          confidence: $confidence,
-          domain: $domain,
-          reasoningMode: $reasoningMode,
-          hasReasoningChain: $hasReasoningChain
-        })
+        MERGE (e:RecommendationEvent {traceId: $traceId})
+        SET e.timestamp = datetime(),
+            e.confidence = $confidence,
+            e.domain = $domain,
+            e.reasoningMode = $reasoningMode,
+            e.hasReasoningChain = $hasReasoningChain
       `,
       params: {
         traceId: event.trace_id ?? null,
@@ -195,14 +189,12 @@ async function handleLearningUpdate(event: IntelligenceEvent): Promise<void> {
 
     await widgetdc_mcp('graph.write_cypher', {
       query: `
-        CREATE (e:LearningEvent {
-          timestamp: datetime(),
-          traceId: $traceId,
-          agentId: $agentId,
-          learningType: $learningType,
-          insight: $insight,
-          confidence: $confidence
-        })
+        MERGE (e:LearningEvent {traceId: $traceId})
+        SET e.timestamp = datetime(),
+            e.agentId = $agentId,
+            e.learningType = $learningType,
+            e.insight = $insight,
+            e.confidence = $confidence
       `,
       params: {
         traceId: event.trace_id ?? null,
@@ -233,15 +225,11 @@ async function handleHealthChange(event: IntelligenceEvent): Promise<void> {
   try {
     await widgetdc_mcp('graph.write_cypher', {
       query: `
-        CREATE (e:HealthChangeEvent {
-          timestamp: datetime(),
-          source: $source,
-          status: $status,
-          previousStatus: $previousStatus,
-          severity: $severity,
-          details: $details,
-          affectedServices: $affectedServices
-        })
+        MERGE (e:HealthChangeEvent {source: $source, status: $status, timestamp: datetime()})
+        SET e.previousStatus = $previousStatus,
+            e.severity = $severity,
+            e.details = $details,
+            e.affectedServices = $affectedServices
       `,
       params: {
         source: event.source ?? 'rlm-engine',
@@ -270,15 +258,13 @@ async function handleQualityScored(event: IntelligenceEvent): Promise<void> {
   try {
     await widgetdc_mcp('graph.write_cypher', {
       query: `
-        CREATE (e:QualityScoreEvent {
-          timestamp: datetime(),
-          traceId: $traceId,
-          overallScore: $overallScore,
-          parsability: $parsability,
-          relevance: $relevance,
-          completeness: $completeness,
-          domain: $domain
-        })
+        MERGE (e:QualityScoreEvent {traceId: $traceId})
+        SET e.timestamp = datetime(),
+            e.overallScore = $overallScore,
+            e.parsability = $parsability,
+            e.relevance = $relevance,
+            e.completeness = $completeness,
+            e.domain = $domain
       `,
       params: {
         traceId: event.trace_id ?? null,
@@ -309,17 +295,15 @@ async function handleQLearningUpdated(event: IntelligenceEvent): Promise<void> {
   try {
     await widgetdc_mcp('graph.write_cypher', {
       query: `
-        CREATE (e:QLearningEvent {
-          timestamp: datetime(),
-          traceId: $traceId,
-          agentId: $agentId,
-          state: $state,
-          action: $action,
-          reward: $reward,
-          newQValue: $newQValue,
-          epsilon: $epsilon,
-          learningRate: $learningRate
-        })
+        MERGE (e:QLearningEvent {traceId: $traceId})
+        SET e.timestamp = datetime(),
+            e.agentId = $agentId,
+            e.state = $state,
+            e.action = $action,
+            e.reward = $reward,
+            e.newQValue = $newQValue,
+            e.epsilon = $epsilon,
+            e.learningRate = $learningRate
       `,
       params: {
         traceId: event.trace_id ?? null,
@@ -347,15 +331,13 @@ async function handleMetaLearningApplied(event: IntelligenceEvent): Promise<void
   try {
     await widgetdc_mcp('graph.write_cypher', {
       query: `
-        CREATE (e:MetaLearningEvent {
-          timestamp: datetime(),
-          traceId: $traceId,
-          patternId: $patternId,
-          patternType: $patternType,
-          confidence: $confidence,
-          appliedTo: $appliedTo,
-          improvement: $improvement
-        })
+        MERGE (e:MetaLearningEvent {traceId: $traceId})
+        SET e.timestamp = datetime(),
+            e.patternId = $patternId,
+            e.patternType = $patternType,
+            e.confidence = $confidence,
+            e.appliedTo = $appliedTo,
+            e.improvement = $improvement
       `,
       params: {
         traceId: event.trace_id ?? null,
@@ -381,13 +363,9 @@ async function handleAgentMemoryPersisted(event: IntelligenceEvent): Promise<voi
   try {
     await widgetdc_mcp('graph.write_cypher', {
       query: `
-        CREATE (e:MemoryPersistEvent {
-          timestamp: datetime(),
-          agentId: $agentId,
-          memoryType: $memoryType,
-          itemCount: $itemCount,
-          success: $success
-        })
+        MERGE (e:MemoryPersistEvent {agentId: $agentId, memoryType: $memoryType, timestamp: datetime()})
+        SET e.itemCount = $itemCount,
+            e.success = $success
       `,
       params: {
         agentId: event.payload.agentId ?? 'unknown',
@@ -411,14 +389,12 @@ async function handleAttentionFoldComplete(event: IntelligenceEvent): Promise<vo
   try {
     await widgetdc_mcp('graph.write_cypher', {
       query: `
-        CREATE (e:AttentionFoldEvent {
-          timestamp: datetime(),
-          traceId: $traceId,
-          layerCount: $layerCount,
-          headCount: $headCount,
-          foldedDimension: $foldedDimension,
-          attentionScore: $attentionScore
-        })
+        MERGE (e:AttentionFoldEvent {traceId: $traceId})
+        SET e.timestamp = datetime(),
+            e.layerCount = $layerCount,
+            e.headCount = $headCount,
+            e.foldedDimension = $foldedDimension,
+            e.attentionScore = $attentionScore
       `,
       params: {
         traceId: event.trace_id ?? null,
@@ -437,15 +413,11 @@ async function handleCircuitBreakerTriggered(event: IntelligenceEvent): Promise<
   try {
     await widgetdc_mcp('graph.write_cypher', {
       query: `
-        CREATE (e:CircuitBreakerEvent {
-          timestamp: datetime(),
-          service: $service,
-          reason: $reason,
-          duration: $duration,
-          failureCount: $failureCount,
-          threshold: $threshold,
-          state: $state
-        })
+        MERGE (e:CircuitBreakerEvent {service: $service, state: $state, timestamp: datetime()})
+        SET e.reason = $reason,
+            e.duration = $duration,
+            e.failureCount = $failureCount,
+            e.threshold = $threshold
       `,
       params: {
         service: event.payload.service ?? 'rlm-engine',
@@ -478,12 +450,9 @@ async function handleSSEBridgeConnected(event: IntelligenceEvent): Promise<void>
   try {
     await widgetdc_mcp('graph.write_cypher', {
       query: `
-        CREATE (e:SSEConnectionEvent {
-          timestamp: datetime(),
-          clientId: $clientId,
-          connectionType: $connectionType,
-          reconnect: $reconnect
-        })
+        MERGE (e:SSEConnectionEvent {clientId: $clientId, connectionType: $connectionType})
+        SET e.timestamp = datetime(),
+            e.reconnect = $reconnect
       `,
       params: {
         clientId: event.payload.client_id ?? 'openclaw',
@@ -504,15 +473,12 @@ async function handleError(event: IntelligenceEvent): Promise<void> {
   try {
     await widgetdc_mcp('graph.write_cypher', {
       query: `
-        CREATE (e:ErrorEvent {
-          timestamp: datetime(),
-          traceId: $traceId,
-          errorType: $errorType,
-          message: $message,
-          severity: $severity,
-          stack: $stack,
-          source: $source
-        })
+        MERGE (e:ErrorEvent {traceId: $traceId, errorType: $errorType})
+        SET e.timestamp = datetime(),
+            e.message = $message,
+            e.severity = $severity,
+            e.stack = $stack,
+            e.source = $source
       `,
       params: {
         traceId: event.trace_id ?? null,
@@ -661,11 +627,9 @@ async function dispatchEvent(event: IntelligenceEvent): Promise<void> {
       // Still log unknown events
       await widgetdc_mcp('graph.write_cypher', {
         query: `
-          CREATE (e:UnknownEvent {
-            timestamp: datetime(),
-            type: $type,
-            payload: $payload
-          })
+          MERGE (e:UnknownEvent {type: $type})
+          SET e.timestamp = datetime(),
+              e.payload = $payload
         `,
         params: {
           type: event.type,

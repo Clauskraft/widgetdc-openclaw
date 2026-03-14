@@ -80,17 +80,15 @@ export async function createInsight(
   try {
     await widgetdc_mcp('graph.write_cypher', {
       query: `
-        CREATE (i:EvidenceBasedInsight {
-          id: $id,
-          title: $title,
-          content: $content,
-          domain: $domain,
-          confidence: $confidence,
-          evidenceCount: $evidenceCount,
-          createdAt: datetime(),
-          createdBy: $agentId,
-          verified: false
-        })
+        MERGE (i:EvidenceBasedInsight {id: $id})
+        SET i.title = $title,
+            i.content = $content,
+            i.domain = $domain,
+            i.confidence = $confidence,
+            i.evidenceCount = $evidenceCount,
+            i.createdAt = datetime(),
+            i.createdBy = $agentId,
+            i.verified = false
       `,
       params: {
         id: insightId,
