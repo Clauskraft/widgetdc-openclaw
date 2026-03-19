@@ -23,12 +23,16 @@ async function main() {
   const r1 = await testRedirect('/chat');
   const r2 = await testRedirect('/chat?session=main');
   const r3 = await testRedirect('/openclaw');
+  const r4 = await testRedirect('/openclaw/chat');
+  const r5 = await testRedirect('/openclaw/chat?session=main');
 
   console.log('/chat:', r1.redirect ? (r1.hasToken ? '✓ redirect with token' : '✗ redirect without token') : 'no redirect');
   console.log('/chat?session=main:', r2.redirect ? (r2.hasToken ? '✓ redirect with token' : '✗ redirect without token') : 'no redirect');
   console.log('/openclaw:', r3.redirect ? (r3.hasToken ? '✓ redirect with token' : '✗ redirect without token') : 'no redirect');
+  console.log('/openclaw/chat:', r4.redirect ? (r4.hasToken ? '✓ redirect with token' : '✗ redirect without token') : 'no redirect');
+  console.log('/openclaw/chat?session=main:', r5.redirect ? (r5.hasToken ? '✓ redirect with token' : '✗ redirect without token') : 'no redirect');
 
-  const ok = [r1, r2, r3].every((r) => r.redirect && r.hasToken);
+  const ok = [r1, r2, r3, r4, r5].every((r) => r.redirect && r.hasToken);
   process.exit(ok ? 0 : 1);
 }
 
