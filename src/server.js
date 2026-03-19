@@ -8,6 +8,7 @@ import express from "express";
 import httpProxy from "http-proxy";
 import pty from "node-pty";
 import { WebSocketServer } from "ws";
+import { rewriteControlUiBootstrapPath } from "./controlUiRouting.js";
 
 const PORT = Number.parseInt(process.env.PORT ?? "8080", 10);
 const STATE_DIR =
@@ -1428,6 +1429,11 @@ app.use(async (req, res) => {
           .sendFile(path.join(process.cwd(), "src", "public", "loading.html"));
       }
     }
+  }
+
+  const rewrittenControlUiPath = rewriteControlUiBootstrapPath(req.path, req.url);
+  if (rewrittenControlUiPath) {
+    return res.redirect(307, rewrittenControlUiPath);
   }
 
   if ((req.path === "/openclaw" || req.path === "/chat") && !req.query.token) {
