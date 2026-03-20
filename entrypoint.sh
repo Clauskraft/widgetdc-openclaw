@@ -190,6 +190,43 @@ if [ -f "${CONFIG_FILE}" ] && command -v node >/dev/null 2>&1; then
   " 2>/dev/null || true
 fi
 
+# ── Control UI origin migration — ensure wrapper-rewritten loopback origins stay allowed ──────
+if [ -f "${CONFIG_FILE}" ] && command -v node >/dev/null 2>&1; then
+  export CONFIG_FILE RAILWAY_PUBLIC_DOMAIN
+  node -e "
+    const fs = require('fs');
+    const path = process.env.CONFIG_FILE;
+    let cfg;
+    try { cfg = JSON.parse(fs.readFileSync(path, 'utf8')); } catch (e) { process.exit(0); }
+    cfg.gateway = cfg.gateway || {};
+    cfg.gateway.controlUi = cfg.gateway.controlUi || {};
+    const domain = process.env.RAILWAY_PUBLIC_DOMAIN || 'openclaw-production-9570.up.railway.app';
+    const requiredOrigins = [
+      'https://' + domain,
+      'http://localhost',
+      'http://localhost:18789',
+      'http://127.0.0.1',
+      'http://127.0.0.1:18789',
+      'http://[::1]:18789'
+    ];
+    const existing = Array.isArray(cfg.gateway.controlUi.allowedOrigins)
+      ? cfg.gateway.controlUi.allowedOrigins
+      : [];
+    let changed = false;
+    for (const origin of requiredOrigins) {
+      if (!existing.includes(origin)) {
+        existing.push(origin);
+        changed = true;
+      }
+    }
+    cfg.gateway.controlUi.allowedOrigins = existing;
+    if (changed) {
+      fs.writeFileSync(path, JSON.stringify(cfg, null, 2));
+      console.log('[entrypoint] Upserted controlUi.allowedOrigins for wrapper loopback + public host');
+    }
+  " 2>/dev/null || true
+fi
+
 # ── Heartbeat migration — tilføj heartbeat til main+infra hvis mangler ──────
 if [ -f "${CONFIG_FILE}" ] && command -v node >/dev/null 2>&1; then
   export CONFIG_FILE
