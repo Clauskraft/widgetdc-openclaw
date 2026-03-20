@@ -6,6 +6,8 @@ on:
       - Deploy to Railway
     types:
       - completed
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       railway_url:

@@ -1390,18 +1390,62 @@ proxy.on("proxyReqWs", (proxyReq, req, socket, options, head) => {
   proxyReq.setHeader("Origin", `http://localhost:${INTERNAL_GATEWAY_PORT}`);
 });
 
+const CONTROL_UI_BOOTSTRAP_PARAM = "_oc_bootstrapped";
+
+function renderControlUiBootstrapPage(reqUrl) {
+  const escapedToken = JSON.stringify(OPENCLAW_GATEWAY_TOKEN);
+  const escapedUrl = JSON.stringify(reqUrl);
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenClaw Bootstrap</title>
+  </head>
+  <body>
+    <script>
+      (() => {
+        const token = ${escapedToken};
+        const url = new URL(${escapedUrl}, window.location.origin);
+        url.searchParams.delete('token');
+        url.searchParams.set('${CONTROL_UI_BOOTSTRAP_PARAM}', '1');
+        const hashParams = new URLSearchParams(
+          url.hash.startsWith('#') ? url.hash.slice(1) : url.hash,
+        );
+        if (!hashParams.has('token')) {
+          hashParams.set('token', token);
+        }
+        url.hash = hashParams.toString();
+        window.location.replace(url.pathname + url.search + url.hash);
+      })();
+    </script>
+  </body>
+</html>`;
+}
+
 // Auto-inject token into /openclaw and /chat browser GET requests so the Control UI works
 // without the user needing to know the gateway token.
 app.use((req, res, next) => {
-  const isControlUi =
+  const isControlUiPage =
     req.method === "GET" &&
     (req.path === "/openclaw" ||
-      req.path.startsWith("/openclaw/") ||
+      req.path === "/openclaw/chat" ||
       req.path === "/chat") &&
+    !req.query[CONTROL_UI_BOOTSTRAP_PARAM] &&
     !req.query.token &&
     !req.headers.authorization &&
     !req.headers.upgrade; // not a WebSocket upgrade
-  if (isControlUi) {
+  if (isControlUiPage) {
+    return res.status(200).type("html").send(renderControlUiBootstrapPage(req.url));
+  }
+
+  const isControlUiAsset =
+    req.method === "GET" &&
+    req.path.startsWith("/openclaw/") &&
+    !req.query.token &&
+    !req.headers.authorization &&
+    !req.headers.upgrade; // not a WebSocket upgrade
+  if (isControlUiAsset) {
     const sep = req.url.includes("?") ? "&" : "?";
     return res.redirect(307, `${req.url}${sep}token=${encodeURIComponent(OPENCLAW_GATEWAY_TOKEN)}`);
   }
@@ -1436,11 +1480,14 @@ app.use(async (req, res) => {
     return res.redirect(307, rewrittenControlUiPath);
   }
 
-  if ((req.path === "/openclaw" || req.path === "/chat") && !req.query.token) {
-    const path = req.path;
-    const qs = req.url.includes("?") ? req.url.slice(req.url.indexOf("?") + 1) : "";
-    const sep = qs ? "&" : "";
-    return res.redirect(`${path}?token=${encodeURIComponent(OPENCLAW_GATEWAY_TOKEN)}${sep}${qs}`);
+  if (
+    (req.path === "/openclaw" ||
+      req.path === "/openclaw/chat" ||
+      req.path === "/chat") &&
+    !req.query[CONTROL_UI_BOOTSTRAP_PARAM] &&
+    !req.query.token
+  ) {
+    return res.status(200).type("html").send(renderControlUiBootstrapPage(req.url));
   }
 
   return proxy.web(req, res, { target: GATEWAY_TARGET });
