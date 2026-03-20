@@ -1,4 +1,4 @@
-name: Docker build
+name: Deploy to Railway
 
 on:
   pull_request:
@@ -45,14 +45,14 @@ jobs:
 
       - name: Deploy to Railway
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY || secrets.RAILWAY_TOKEN }}
         run: |
           if [ -z "$RAILWAY_TOKEN" ]; then
-            echo "::error::RAILWAY secret not set — cannot deploy"
-            echo "Set RAILWAY secret in GitHub repo settings with a Railway API token"
+            echo "::error::Set either the RAILWAY or RAILWAY_TOKEN GitHub secret before enabling auto-deploy."
             exit 1
           fi
           railway up \
             --service openclaw \
-            --environment production
+            --environment production \
+            --ci
           echo "✅ OpenClaw deployed to Railway"
