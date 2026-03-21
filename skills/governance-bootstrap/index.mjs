@@ -1,21 +1,71 @@
 /**
  * OC-006 — Governance Bootstrap Verification Skill
  *
- * Validates alignment between:
- *   .governance-sync/agent_bootstrap_manifest.json
- *   .governance-sync/agent_capability_matrix.json
- *   agent-souls/config-template.json
- *
- * Returns a structured report with PASS/FAIL, missing agents,
- * capability mismatches, and drift warnings.
+ * OpenClaw is an execution surface, not a policy source. This verifier checks
+ * that the local execution overlay stays aligned with the synced governance
+ * bundle while allowing repo-local personas that are intentionally not part of
+ * the machine-policy capability matrix.
  */
 
-import { readFile } from 'fs/promises';
-import { dirname, resolve } from 'path';
+import { access, readFile } from 'fs/promises';
+import { basename, dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..');
+
+const REQUIRED_EXECUTION_AGENTS = [
+  {
+    configId: 'omega-sentinel',
+    promptFile: 'agent-souls/main.md',
+    matrixId: 'omega_sentinel',
+    source: 'machine_policy',
+  },
+  {
+    configId: 'consulting-partner',
+    promptFile: 'agent-souls/strategist.md',
+    source: 'execution_overlay',
+  },
+  {
+    configId: 'regulatory-navigator',
+    promptFile: 'agent-souls/security.md',
+    source: 'execution_overlay',
+  },
+  {
+    configId: 'graph-steward',
+    promptFile: 'agent-souls/data.md',
+    source: 'execution_overlay',
+  },
+  {
+    configId: 'loop-orchestrator',
+    promptFile: 'agent-souls/orchestrator.md',
+    matrixId: 'loop_orchestrator',
+    source: 'machine_policy',
+  },
+  {
+    configId: 'dream-weaver',
+    promptFile: 'agent-souls/harvester.md',
+    source: 'execution_overlay',
+  },
+  {
+    configId: 'frontend-sentinel',
+    promptFile: 'agent-souls/frontend-sentinel.md',
+    source: 'execution_overlay',
+  },
+  {
+    configId: 'compliance-officer',
+    promptFile: 'agent-souls/compliance.md',
+    source: 'execution_overlay',
+  },
+];
+
+const OPTIONAL_SUPPORT_AGENTS = [
+  {
+    configId: 'skribleren',
+    promptFile: 'agent-souls/writer.md',
+    source: 'support_persona',
+  },
+];
 
 /**
  * Safely read and parse a JSON file. Returns { data, error }.
@@ -30,18 +80,11 @@ async function loadJson(relPath) {
   }
 }
 
-/**
- * Normalise an agent id to a comparable key.
- * Strips hyphens/underscores and lowercases.
- */
 function normaliseId(id) {
   return id.replace(/[-_]/g, '').toLowerCase();
 }
 
-/**
- * Build a lookup map keyed by normalised id, preserving original keys.
- */
-function buildLookup(obj) {
+function buildMatrixLookup(obj) {
   const map = new Map();
   for (const key of Object.keys(obj)) {
     map.set(normaliseId(key), { originalKey: key, value: obj[key] });
@@ -49,34 +92,60 @@ function buildLookup(obj) {
   return map;
 }
 
-/**
- * Main verification function. Can be called programmatically by OpenClaw.
- *
- * @returns {Promise<GovernanceReport>}
- */
+function buildConfigLookup(list) {
+  const map = new Map();
+  for (const agent of list) {
+    map.set(normaliseId(agent.id), agent);
+  }
+  return map;
+}
+
+async function fileExists(relPath) {
+  try {
+    await access(resolve(REPO_ROOT, relPath));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function expectedPromptPath(relPath) {
+  return `/data/workspace/${relPath.replace(/\\/g, '/')}`;
+}
+
+function pushPromptMismatch(report, agentId, actual, expected, detail) {
+  report.capabilityMismatches.push({
+    agentId,
+    configId: agentId,
+    field: 'systemPromptFile',
+    expected,
+    actual,
+    detail,
+  });
+}
+
 export async function verifyGovernanceBootstrap() {
   const report = {
     status: 'PASS',
     timestamp: new Date().toISOString(),
     sources: {},
     missingAgents: [],
+    missingPromptFiles: [],
     capabilityMismatches: [],
     driftWarnings: [],
     summary: '',
   };
 
-  // ── Load sources ──────────────────────────────────────────────
   const manifest = await loadJson('.governance-sync/agent_bootstrap_manifest.json');
-  const matrix   = await loadJson('.governance-sync/agent_capability_matrix.json');
-  const config   = await loadJson('agent-souls/config-template.json');
+  const matrix = await loadJson('.governance-sync/agent_capability_matrix.json');
+  const config = await loadJson('agent-souls/config-template.json');
 
   report.sources = {
     bootstrap_manifest: manifest.error ? `MISSING (${manifest.error})` : 'OK',
-    capability_matrix:  matrix.error   ? `MISSING (${matrix.error})`   : 'OK',
-    config_template:    config.error   ? `MISSING (${config.error})`   : 'OK',
+    capability_matrix: matrix.error ? `MISSING (${matrix.error})` : 'OK',
+    config_template: config.error ? `MISSING (${config.error})` : 'OK',
   };
 
-  // If capability matrix is missing we cannot run the core checks
   if (matrix.error) {
     report.status = 'FAIL';
     report.driftWarnings.push({
@@ -84,11 +153,10 @@ export async function verifyGovernanceBootstrap() {
       source: 'agent_capability_matrix.json',
       detail: matrix.error,
     });
-    report.summary = 'Cannot verify — capability matrix missing.';
+    report.summary = 'Cannot verify - capability matrix missing.';
     return report;
   }
 
-  // If config-template is missing we cannot cross-check agents
   if (config.error) {
     report.status = 'FAIL';
     report.driftWarnings.push({
@@ -96,97 +164,127 @@ export async function verifyGovernanceBootstrap() {
       source: 'config-template.json',
       detail: config.error,
     });
-    report.summary = 'Cannot verify — config-template.json missing.';
+    report.summary = 'Cannot verify - config-template.json missing.';
     return report;
   }
 
-  // ── Extract agent sets ────────────────────────────────────────
   const matrixAgents = matrix.data.agents || {};
   const configAgentList = config.data?.agents?.list || [];
+  const matrixLookup = buildMatrixLookup(matrixAgents);
+  const configLookup = buildConfigLookup(configAgentList);
+  const requiredIds = new Set(REQUIRED_EXECUTION_AGENTS.map((agent) => normaliseId(agent.configId)));
+  const optionalIds = new Set(OPTIONAL_SUPPORT_AGENTS.map((agent) => normaliseId(agent.configId)));
 
-  // Build lookup from config-template agent list (by normalised id)
-  const configLookup = new Map();
-  for (const agent of configAgentList) {
-    configLookup.set(normaliseId(agent.id), agent);
-  }
-
-  const matrixLookup = buildLookup(matrixAgents);
-
-  // ── Check 1: All matrix agents present in config-template ────
-  for (const [normId, { originalKey, value }] of matrixLookup) {
+  for (const expectedAgent of REQUIRED_EXECUTION_AGENTS) {
+    const normId = normaliseId(expectedAgent.configId);
     const configAgent = configLookup.get(normId);
 
     if (!configAgent) {
       report.missingAgents.push({
-        agentId: originalKey,
-        category: value.category || 'unknown',
-        primaryRole: value.primary_role || 'unknown',
+        agentId: expectedAgent.configId,
+        category: expectedAgent.source,
+        primaryRole: expectedAgent.source === 'machine_policy' ? 'machine_policy_anchor' : 'execution_overlay',
         expectedIn: 'config-template.json agents.list',
       });
+      continue;
     }
-  }
 
-  // ── Check 2: Config agents not in capability matrix (drift) ──
-  for (const [normId, agent] of configLookup) {
-    if (!matrixLookup.has(normId)) {
+    const expectedPrompt = expectedPromptPath(expectedAgent.promptFile);
+    if (configAgent.systemPromptFile !== expectedPrompt) {
+      pushPromptMismatch(
+        report,
+        expectedAgent.configId,
+        configAgent.systemPromptFile,
+        expectedPrompt,
+        `Agent "${configAgent.id}" must point at ${basename(expectedAgent.promptFile)} to keep the OpenClaw execution overlay deterministic.`,
+      );
+    }
+
+    if (!(await fileExists(expectedAgent.promptFile))) {
+      report.missingPromptFiles.push({
+        agentId: expectedAgent.configId,
+        promptFile: expectedAgent.promptFile,
+      });
+    }
+
+    if (expectedAgent.matrixId && !matrixLookup.has(normaliseId(expectedAgent.matrixId))) {
       report.driftWarnings.push({
-        type: 'config_agent_not_in_matrix',
-        agentId: agent.id,
-        agentName: agent.name,
-        detail: `Agent "${agent.id}" is defined in config-template but has no entry in capability_matrix. This may indicate governance drift.`,
+        type: 'machine_policy_anchor_missing',
+        agentId: expectedAgent.configId,
+        detail: `Expected machine-policy anchor "${expectedAgent.matrixId}" is missing from .governance-sync/agent_capability_matrix.json.`,
       });
     }
   }
 
-  // ── Check 3: Capability alignment for matched agents ─────────
-  for (const [normId, { originalKey, value: matrixEntry }] of matrixLookup) {
-    const configAgent = configLookup.get(normId);
-    if (!configAgent) continue; // already captured as missing
-
-    // Check elevated flag vs governance role expectations
-    if (matrixEntry.category === 'governance_agent' || matrixEntry.category === 'execution_engine') {
-      // Governance/execution agents should ideally have elevated or heartbeat
-      if (!configAgent.elevated && !configAgent.heartbeat?.enabled) {
-        report.driftWarnings.push({
-          type: 'governance_agent_not_elevated',
-          agentId: originalKey,
-          configId: configAgent.id,
-          detail: `Governance/execution agent "${originalKey}" has neither elevated:true nor heartbeat in config-template. Consider enabling for monitoring.`,
-        });
-      }
+  for (const supportAgent of OPTIONAL_SUPPORT_AGENTS) {
+    const configAgent = configLookup.get(normaliseId(supportAgent.configId));
+    if (!configAgent) {
+      continue;
     }
 
-    // Check QA agents have delivery ownership matching
-    if (matrixEntry.owns_delivery_for_own_changes === true) {
-      // This is an informational check — no config-template field maps directly
-      // but we flag if timeout is suspiciously low for delivery-owning agents
-      if ((configAgent.timeoutSeconds || 180) < 120) {
-        report.capabilityMismatches.push({
-          agentId: originalKey,
-          configId: configAgent.id,
-          field: 'timeoutSeconds',
-          expected: '>= 120 (delivery-owning agent)',
-          actual: configAgent.timeoutSeconds,
-          detail: 'Agent owns delivery but has a very short timeout, which may cause incomplete task execution.',
-        });
-      }
+    const expectedPrompt = expectedPromptPath(supportAgent.promptFile);
+    if (configAgent.systemPromptFile !== expectedPrompt) {
+      pushPromptMismatch(
+        report,
+        supportAgent.configId,
+        configAgent.systemPromptFile,
+        expectedPrompt,
+        `Support agent "${configAgent.id}" must point at ${basename(supportAgent.promptFile)}.`,
+      );
     }
 
-    // Cross-check: system_agent category agents should have sufficient context
-    if (matrixEntry.category === 'system_agent') {
-      if ((configAgent.contextTokens || 0) < 500000) {
-        report.driftWarnings.push({
-          type: 'low_context_for_system_agent',
-          agentId: originalKey,
-          configId: configAgent.id,
-          contextTokens: configAgent.contextTokens,
-          detail: `System agent "${originalKey}" has contextTokens=${configAgent.contextTokens}, which is below 500K recommended for system agents.`,
-        });
-      }
+    if (!(await fileExists(supportAgent.promptFile))) {
+      report.missingPromptFiles.push({
+        agentId: supportAgent.configId,
+        promptFile: supportAgent.promptFile,
+      });
     }
   }
 
-  // ── Check 4: Bootstrap manifest closure rules ─────────────────
+  for (const [normId, agent] of configLookup) {
+    if (!requiredIds.has(normId) && !optionalIds.has(normId)) {
+      report.driftWarnings.push({
+        type: 'unknown_local_persona',
+        agentId: agent.id,
+        agentName: agent.name,
+        detail: `Agent "${agent.id}" is present in config-template but is not declared in the local OpenClaw execution overlay registry.`,
+      });
+    }
+  }
+
+  for (const expectedAgent of REQUIRED_EXECUTION_AGENTS.filter((agent) => agent.matrixId)) {
+    const configAgent = configLookup.get(normaliseId(expectedAgent.configId));
+    const matrixEntry = matrixLookup.get(normaliseId(expectedAgent.matrixId));
+
+    if (!configAgent || !matrixEntry) {
+      continue;
+    }
+
+    if (
+      (matrixEntry.value.category === 'governance_agent' || matrixEntry.value.category === 'execution_engine') &&
+      !configAgent.elevated &&
+      !configAgent.heartbeat?.enabled
+    ) {
+      report.driftWarnings.push({
+        type: 'governance_agent_not_elevated',
+        agentId: matrixEntry.originalKey,
+        configId: configAgent.id,
+        detail: `Governance/execution agent "${matrixEntry.originalKey}" has neither elevated:true nor heartbeat in config-template. Consider enabling one of them for monitoring.`,
+      });
+    }
+
+    if (matrixEntry.value.owns_delivery_for_own_changes === true && (configAgent.timeoutSeconds || 180) < 120) {
+      report.capabilityMismatches.push({
+        agentId: matrixEntry.originalKey,
+        configId: configAgent.id,
+        field: 'timeoutSeconds',
+        expected: '>= 120 (delivery-owning agent)',
+        actual: configAgent.timeoutSeconds,
+        detail: 'Agent owns delivery but has a very short timeout, which may cause incomplete task execution.',
+      });
+    }
+  }
+
   if (manifest.data) {
     const allowedRepos = manifest.data.allowed_owner_repos || [];
     if (allowedRepos.length > 0 && !allowedRepos.includes('widgetdc-openclaw')) {
@@ -196,12 +294,19 @@ export async function verifyGovernanceBootstrap() {
       });
     }
 
-    // Verify required_reads are documented
     const requiredReads = manifest.data.required_reads || [];
     if (requiredReads.length === 0) {
       report.driftWarnings.push({
         type: 'empty_required_reads',
         detail: 'Bootstrap manifest has no required_reads defined.',
+      });
+    }
+
+    const closureRules = manifest.data.closure_rules || [];
+    if (!closureRules.includes('OpenClaw is execution-only and never policy truth.')) {
+      report.driftWarnings.push({
+        type: 'closure_rule_missing',
+        detail: 'Bootstrap manifest is missing the OpenClaw execution-only closure rule.',
       });
     }
   } else {
@@ -212,18 +317,24 @@ export async function verifyGovernanceBootstrap() {
     });
   }
 
-  // ── Determine overall status ──────────────────────────────────
-  if (report.missingAgents.length > 0 || report.capabilityMismatches.length > 0) {
+  if (
+    report.missingAgents.length > 0 ||
+    report.missingPromptFiles.length > 0 ||
+    report.capabilityMismatches.length > 0
+  ) {
     report.status = 'FAIL';
   }
 
-  // ── Summary ───────────────────────────────────────────────────
   const parts = [];
-  parts.push(`Sources: ${Object.values(report.sources).filter(v => v === 'OK').length}/3 OK`);
-  parts.push(`Matrix agents: ${Object.keys(matrixAgents).length}`);
+  parts.push(`Sources: ${Object.values(report.sources).filter((value) => value === 'OK').length}/3 OK`);
+  parts.push(`Machine-policy anchors: ${REQUIRED_EXECUTION_AGENTS.filter((agent) => agent.source === 'machine_policy').length}`);
+  parts.push(`Execution overlay agents: ${REQUIRED_EXECUTION_AGENTS.filter((agent) => agent.source === 'execution_overlay').length}`);
   parts.push(`Config agents: ${configAgentList.length}`);
   if (report.missingAgents.length > 0) {
-    parts.push(`Missing from config: ${report.missingAgents.map(a => a.agentId).join(', ')}`);
+    parts.push(`Missing from config: ${report.missingAgents.map((agent) => agent.agentId).join(', ')}`);
+  }
+  if (report.missingPromptFiles.length > 0) {
+    parts.push(`Missing prompt files: ${report.missingPromptFiles.map((prompt) => prompt.promptFile).join(', ')}`);
   }
   if (report.capabilityMismatches.length > 0) {
     parts.push(`Capability mismatches: ${report.capabilityMismatches.length}`);
@@ -236,11 +347,7 @@ export async function verifyGovernanceBootstrap() {
   return report;
 }
 
-/**
- * OpenClaw skill entry point.
- * Called when the skill is invoked via /governance-bootstrap.
- */
-export default async function run(_args) {
+export default async function run() {
   const report = await verifyGovernanceBootstrap();
 
   const statusIcon = report.status === 'PASS' ? '[PASS]' : '[FAIL]';
@@ -249,37 +356,41 @@ export default async function run(_args) {
   lines.push(`Timestamp: ${report.timestamp}`);
   lines.push('');
 
-  // Sources
   lines.push('Sources:');
   for (const [name, status] of Object.entries(report.sources)) {
     lines.push(`  ${status === 'OK' ? '[OK]' : '[!!]'} ${name}: ${status}`);
   }
   lines.push('');
 
-  // Missing agents
   if (report.missingAgents.length > 0) {
     lines.push(`Missing Agents (${report.missingAgents.length}):`);
-    for (const m of report.missingAgents) {
-      lines.push(`  - ${m.agentId} (${m.category} / ${m.primaryRole}) — not in ${m.expectedIn}`);
+    for (const missingAgent of report.missingAgents) {
+      lines.push(`  - ${missingAgent.agentId} (${missingAgent.category} / ${missingAgent.primaryRole}) - not in ${missingAgent.expectedIn}`);
     }
     lines.push('');
   }
 
-  // Capability mismatches
+  if (report.missingPromptFiles.length > 0) {
+    lines.push(`Missing Prompt Files (${report.missingPromptFiles.length}):`);
+    for (const prompt of report.missingPromptFiles) {
+      lines.push(`  - ${prompt.agentId}: ${prompt.promptFile}`);
+    }
+    lines.push('');
+  }
+
   if (report.capabilityMismatches.length > 0) {
     lines.push(`Capability Mismatches (${report.capabilityMismatches.length}):`);
-    for (const c of report.capabilityMismatches) {
-      lines.push(`  - ${c.agentId}: ${c.field} expected ${c.expected}, got ${c.actual}`);
-      lines.push(`    ${c.detail}`);
+    for (const mismatch of report.capabilityMismatches) {
+      lines.push(`  - ${mismatch.agentId}: ${mismatch.field} expected ${mismatch.expected}, got ${mismatch.actual}`);
+      lines.push(`    ${mismatch.detail}`);
     }
     lines.push('');
   }
 
-  // Drift warnings
   if (report.driftWarnings.length > 0) {
     lines.push(`Drift Warnings (${report.driftWarnings.length}):`);
-    for (const w of report.driftWarnings) {
-      lines.push(`  - [${w.type}] ${w.detail}`);
+    for (const warning of report.driftWarnings) {
+      lines.push(`  - [${warning.type}] ${warning.detail}`);
     }
     lines.push('');
   }

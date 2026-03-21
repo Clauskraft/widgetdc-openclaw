@@ -1,24 +1,30 @@
-# OpenClaw Agent Persona → Governance Mapping
+# OpenClaw Execution Persona Alignment
 
 Created: 2026-03-21
 Source: Gap analysis widgetdc-openclaw vs WidgeTDC governance model
 
-## Canonical Governance Agents (8)
+## Scope
 
-The WidgeTDC governance model defines 8 consolidated agents. OpenClaw personas must map to these.
+OpenClaw is an execution surface. It hosts a local execution roster that is
+aligned to WidgeTDC operating docs, while machine-policy truth remains in the
+synced governance bundle under `.governance-sync/`.
+
+This file documents that local alignment layer. It is not a replacement for
+`config/*.json` truth in WidgeTDC.
 
 ## Mapping Table
 
-| Governance Agent | OpenClaw Persona | OpenClaw ID | Status |
+| Local Execution Agent | Prompt File | Machine-Policy Anchor | Status |
 |---|---|---|---|
-| omega-sentinel | Omega Sentinel (🛡️) | main | MAPPED |
-| consulting-partner | Stor-Bjørn (🐻) | strategist | MAPPED |
-| regulatory-navigator | Cyber-Vipera (🐍) | security | MAPPED |
-| graph-steward | Graf-Oktopus (🐙) | data | MAPPED |
-| loop-orchestrator | Dirigenten (🎼) | orchestrator | MAPPED |
-| dream-weaver | Stovsugeren (🌀) | harvester | MAPPED |
-| frontend-sentinel | — | — | NEW (use E2E runner) |
-| compliance-officer | — | — | NEW (add persona) |
+| omega-sentinel | `agent-souls/main.md` | `omega_sentinel` | MACHINE_POLICY_ANCHOR |
+| consulting-partner | `agent-souls/strategist.md` | none | LOCAL_EXECUTION_OVERLAY |
+| regulatory-navigator | `agent-souls/security.md` | none | LOCAL_EXECUTION_OVERLAY |
+| graph-steward | `agent-souls/data.md` | none | LOCAL_EXECUTION_OVERLAY |
+| loop-orchestrator | `agent-souls/orchestrator.md` | `loop_orchestrator` | MACHINE_POLICY_ANCHOR |
+| dream-weaver | `agent-souls/harvester.md` | none | LOCAL_EXECUTION_OVERLAY |
+| frontend-sentinel | `agent-souls/frontend-sentinel.md` | none | LOCAL_EXECUTION_OVERLAY |
+| compliance-officer | `agent-souls/compliance.md` | none | LOCAL_EXECUTION_OVERLAY |
+| skribleren | `agent-souls/writer.md` | none | SUPPORT_PERSONA |
 
 ## Consolidated/Removed Personas
 
@@ -27,18 +33,21 @@ The WidgeTDC governance model defines 8 consolidated agents. OpenClaw personas m
 | analyst (Tal-Trold 📊) | MERGED | consulting-partner (strategist) |
 | coder (Kodehaj 🦈) | MERGED | loop-orchestrator (orchestrator) |
 | documentalist (Arkivar-Rex 📚) | MERGED | consulting-partner (strategist) |
-| infra (Jernfod 🦾) | RETAINED | Supporting role (not a governance agent) |
-| github (Repo Sherif 🤠) | RETAINED | Supporting role (CI/CD operations) |
+| infra (Jernfod 🦾) | RETAINED | Supporting role (not in current config-template) |
+| github (Repo Sherif 🤠) | RETAINED | Supporting role (not in current config-template) |
 
 ## Notes
 
-- `infra` and `github` are operational support personas, not governance agents. They are retained as utility roles.
-- `analyst` financial capabilities are absorbed into `consulting-partner` (strategist persona).
-- `coder` code analysis capabilities are absorbed into `loop-orchestrator` (orchestrator persona).
-- `documentalist` document generation capabilities are absorbed into `consulting-partner` (strategist persona).
-- `frontend-sentinel` needs a new OpenClaw persona added for browser E2E execution.
-- `compliance-officer` needs a new OpenClaw persona added for SRAG/GDPR/NIS2 execution.
+- `infra` and `github` remain support personas outside the current execution roster.
+- `analyst` capabilities are absorbed into `consulting-partner`.
+- `coder` capabilities are absorbed into `loop-orchestrator`.
+- `documentalist` capabilities are absorbed into `consulting-partner`.
+- `frontend-sentinel` and `compliance-officer` now have local soul files and are part of the execution overlay.
+- Only `omega-sentinel` and `loop-orchestrator` are currently anchored directly in the synced machine-policy capability matrix.
+- The remaining execution agents are local OpenClaw overlays and must never be described as machine-policy truth.
 
 ## Governance Rule
 
-OpenClaw is an execution surface, not a truth source. Persona definitions here must align with the canonical governance model defined in WidgeTDC's `config/agent_capability_matrix.json`.
+OpenClaw is an execution surface, not a truth source. Local persona definitions
+must stay subordinate to the synced governance bundle and must not claim to be
+canonical machine policy on their own.

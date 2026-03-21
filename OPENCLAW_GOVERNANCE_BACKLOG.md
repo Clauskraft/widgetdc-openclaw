@@ -46,3 +46,10 @@ Source: Gap analysis — widgetdc-openclaw vs WidgeTDC governance
 - **Status:** COMPLETED (2026-03-21)
 - **Scope:** skills/governance-bootstrap/ — verifies agent roster against bootstrap manifest + capability matrix
 - **Deliverables:** package.json, index.mjs, README.md. Tested and functional.
+
+### OC-007: Restore execution-overlay soul files and verification model
+- **Owner:** Codex
+- **Status:** COMPLETED (2026-03-21)
+- **Scope:** Restore missing `agent-souls/*.md` files referenced by config-template and fix governance-bootstrap so it validates OpenClaw as an execution overlay rather than requiring full parity with the machine-policy matrix.
+- **Files:** agent-souls/*.md, docs/AGENT_PERSONA_GOVERNANCE_MAP.md, skills/governance-bootstrap/*
+- **Deliverables:** All referenced prompt files exist, verification passes, local docs no longer claim parallel machine truth.

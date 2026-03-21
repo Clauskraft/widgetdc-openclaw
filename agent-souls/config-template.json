@@ -62,7 +62,8 @@
         "model": { "name": "gemini-2.5-flash", "provider": "google" },
         "systemPromptFile": "/data/workspace/agent-souls/orchestrator.md",
         "contextTokens": 800000,
-        "timeoutSeconds": 300
+        "timeoutSeconds": 300,
+        "heartbeat": { "enabled": true, "every": "15m" }
       },
       {
         "id": "dream-weaver",
