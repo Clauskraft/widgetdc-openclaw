@@ -1,0 +1,175 @@
+{
+  "version": "2026-03-14",
+  "matrix_name": "canonical_agent_capability_matrix",
+  "source": "MASTER_POLICY.md",
+  "agents": {
+    "codex": {
+      "category": "system_agent",
+      "primary_role": "builder",
+      "responsibilities": [
+        "implementation",
+        "integration",
+        "runtime_hardening",
+        "policy_contract_corrections",
+        "workflow_topology_validation",
+        "commit_own_finished_batches",
+        "push_own_finished_batches_to_main",
+        "follow_up_own_railway_deployments"
+      ],
+      "owns_delivery_for_own_changes": true,
+      "can_approve_qa_waiver": true,
+      "requires_architecture_review_for": [
+        "topology_shifts",
+        "operating_model_changes",
+        "cross_repo_contract_changes"
+      ]
+    },
+    "gemini": {
+      "category": "system_agent",
+      "primary_role": "architecture_reviewer",
+      "responsibilities": [
+        "architecture_review",
+        "topology_review",
+        "operating_model_review",
+        "runtime_design_review",
+        "commit_own_finished_batches",
+        "push_own_finished_batches_to_main",
+        "follow_up_own_railway_deployments"
+      ],
+      "implementation_owner": false,
+      "owns_delivery_for_own_changes": true,
+      "can_approve_qa_waiver": false
+    },
+    "claude": {
+      "category": "system_agent",
+      "primary_role": "deploy_test_gate",
+      "responsibilities": [
+        "deploy_gate",
+        "test_gate",
+        "wording_alignment",
+        "operational_rollout",
+        "coordination_governance",
+        "commit_own_finished_batches",
+        "push_own_finished_batches_to_main",
+        "follow_up_own_railway_deployments"
+      ],
+      "owns_delivery_for_own_changes": true,
+      "can_approve_qa_waiver": true
+    },
+    "omega_sentinel": {
+      "category": "governance_agent",
+      "primary_role": "governance_guardian",
+      "responsibilities": [
+        "governance_guardianship",
+        "cross_truth_drift_detection",
+        "runtime_certification",
+        "closure_verification",
+        "orchestration_engine_validation",
+        "plan_as_is_to_be_alignment_enforcement"
+      ],
+      "must_sync_with": [
+        "project_manager_widgetdc",
+        "master_architect_widgetdc",
+        "loop_orchestrator"
+      ],
+      "owns_delivery_for_own_changes": true,
+      "can_approve_qa_waiver": false
+    },
+    "project_manager_widgetdc": {
+      "category": "governance_agent",
+      "primary_role": "plan_owner",
+      "responsibilities": [
+        "active_plan_maintenance",
+        "delivery_sequencing",
+        "issue_and_owner_alignment",
+        "blocker_visibility",
+        "next_action_definition",
+        "plan_sync_with_as_is_and_to_be"
+      ],
+      "must_remain_current_on": [
+        "active_plan",
+        "current_wave",
+        "blockers",
+        "next_actions",
+        "runtime_delivery_state"
+      ],
+      "owns_delivery_for_own_changes": true,
+      "can_approve_qa_waiver": false
+    },
+    "master_architect_widgetdc": {
+      "category": "governance_agent",
+      "primary_role": "topology_owner",
+      "responsibilities": [
+        "as_is_model_ownership",
+        "to_be_model_ownership",
+        "boundary_adjudication",
+        "source_of_truth_assignment",
+        "architecture_coherence",
+        "topology_consequence_review"
+      ],
+      "must_remain_current_on": [
+        "as_is",
+        "to_be",
+        "boundary_ownership",
+        "source_hierarchy",
+        "architecture_consequences"
+      ],
+      "owns_delivery_for_own_changes": true,
+      "can_approve_qa_waiver": false
+    },
+    "loop_orchestrator": {
+      "category": "execution_engine",
+      "primary_role": "orchestration_engine",
+      "responsibilities": [
+        "spec_dev_test_refine_orchestration",
+        "execution_loop_control",
+        "iteration_discipline",
+        "acceptance_criteria_tracking"
+      ],
+      "must_receive_inputs_from": [
+        "project_manager_widgetdc",
+        "master_architect_widgetdc",
+        "omega_sentinel"
+      ],
+      "owns_delivery_for_own_changes": true,
+      "can_approve_qa_waiver": false
+    },
+    "qwen3_5": {
+      "category": "active_qa_agent",
+      "primary_role": "default_code_qa",
+      "responsibilities": [
+        "qa_review",
+        "simplification_review",
+        "ontology_drift_review",
+        "contract_drift_review",
+        "commit_own_finished_batches",
+        "push_own_finished_batches_to_main",
+        "follow_up_own_railway_deployments"
+      ],
+      "global_blocking_gate": false,
+      "active_in_collaboration_loop": true,
+      "owns_delivery_for_own_changes": true,
+      "can_participate_in_direct_agent_communication": true
+    },
+    "qwen_code_smith": {
+      "category": "active_qa_agent",
+      "primary_role": "qa_execution_fallback",
+      "responsibilities": [
+        "qa_with_mcp_context",
+        "qa_with_repo_reads",
+        "qa_with_runtime_fact_checks",
+        "commit_own_finished_batches",
+        "push_own_finished_batches_to_main",
+        "follow_up_own_railway_deployments"
+      ],
+      "only_used_when": [
+        "task_requires_mcp_or_repo_reads_for_qwen",
+        "task_requires_runtime_or_tool_facts_for_qwen"
+      ],
+      "active_in_collaboration_loop": true,
+      "owns_delivery_for_own_changes": true,
+      "can_participate_in_direct_agent_communication": true
+    }
+  },
+  "_synced_from": "WidgeTDC — DO NOT EDIT LOCALLY"
+}

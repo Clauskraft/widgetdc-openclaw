@@ -1,0 +1,75 @@
+{
+  "surface_id": "agent_bootstrap_manifest",
+  "schema_version": "2026-03-19.v1",
+  "updated_at": "2026-03-20T15:25:00Z",
+  "canonical_owner_repo": "WidgeTDC",
+  "purpose": "Canonical machine-readable bootstrap manifest for all WidgeTDC agents and models.",
+  "source_hierarchy": {
+    "operational_coordination": "Linear",
+    "machine_policy_truth": "config/*.json",
+    "human_policy_explanation": "docs/*.md",
+    "archive_index_only": "docs/HANDOVER_LOG.md",
+    "cross_repo_distribution_source": "WidgeTDC governance bundle"
+  },
+  "required_reads": [
+    "MASTER_POLICY.md",
+    "config/agent_autoflow_policy.json",
+    "config/agent_capability_matrix.json",
+    "config/runtime_compliance_policy.json",
+    "config/agent_bootstrap_manifest.json",
+    "config/repo_inventory.json",
+    "docs/AGENT_DO_DONTS.md",
+    "docs/PROJECTS_ROOT_GOVERNANCE.md",
+    "docs/WIDGETDC_CANONICAL_GOVERNANCE_MODEL_2026-03-17.md",
+    "state/canonical_state.json",
+    "state/residuals.json",
+    "state/optimization_backlog.json",
+    "docs/AGENT_SUMMARY.md"
+  ],
+  "closure_rules": [
+    "No parallel truth across docs, schemas, runtime consumers, or environment structure.",
+    "Residuals must use canonical buckets only.",
+    "arch-mcp-server is a read-only consumer of governance-pack surfaces.",
+    "OpenClaw is execution-only and never policy truth.",
+    "Shared contracts remain canonical in widgetdc-contracts.",
+    "Projects root classification must stay canonical in config/repo_inventory.json."
+  ],
+  "allowed_owner_repos": [
+    "WidgeTDC",
+    "widgetdc-contracts",
+    "widgetdc-rlm-engine",
+    "widgetdc-openclaw",
+    "widgetdc-canvas",
+    "widgetdc-consulting-frontend",
+    "widgetdc-librechat",
+    "widgetdc-orchestrator"
+  ],
+  "retrieval_surfaces": {
+    "local_backend_routes": [
+      "/agent-bootstrap",
+      "/canonical-state",
+      "/residuals",
+      "/optimization-backlog",
+      "/agent-summary"
+    ],
+    "arch_mcp_expected_routes": [
+      "/agent-bootstrap",
+      "/canonical-state",
+      "/residuals",
+      "/optimization-backlog",
+      "/agent-summary"
+    ]
+  },
+  "pre_task_bootstrap_proof": {
+    "command": "python scripts/sync_agent_governance.py",
+    "required": true,
+    "reason": "Validate that the governance bundle and governance pack remain canonical before task execution."
+  },
+  "arch_mcp_integration": {
+    "role": "read_only_consumer",
+    "implementation_owner_repo": "external-to-WidgeTDC",
+    "source_mode": "proxy_or_file_read_of_canonical_WidgeTDC_surfaces",
+    "contract_doc": "docs/ARCH_MCP_AGENT_GOVERNANCE_PACK_INTEGRATION.md"
+  },
+  "_synced_from": "WidgeTDC — DO NOT EDIT LOCALLY"
+}
