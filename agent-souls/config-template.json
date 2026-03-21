@@ -29,6 +29,70 @@
         "heartbeat": { "enabled": true, "every": "15m" }
       },
       {
+        "id": "consulting-partner",
+        "name": "Stor-Bjørn 🐻",
+        "description": "Strategic consulting partner. Strategy, analysis, due diligence, document generation, and financial modeling. Maps to governance agent consulting-partner.",
+        "model": { "name": "gemini-2.5-flash", "provider": "google" },
+        "systemPromptFile": "/data/workspace/agent-souls/strategist.md",
+        "contextTokens": 800000,
+        "timeoutSeconds": 300
+      },
+      {
+        "id": "regulatory-navigator",
+        "name": "Cyber-Vipera 🐍",
+        "description": "Regulatory navigation and security assessment. GDPR, NIS2, cybersecurity frameworks, threat modeling. Maps to governance agent regulatory-navigator.",
+        "model": { "name": "gemini-2.5-flash", "provider": "google" },
+        "systemPromptFile": "/data/workspace/agent-souls/security.md",
+        "contextTokens": 800000,
+        "timeoutSeconds": 300
+      },
+      {
+        "id": "graph-steward",
+        "name": "Graf-Oktopus 🐙",
+        "description": "Neo4j graph steward. Ontology management, MERGE-only writes, embedding alignment, knowledge graph health. Maps to governance agent graph-steward.",
+        "model": { "name": "gemini-2.5-flash", "provider": "google" },
+        "systemPromptFile": "/data/workspace/agent-souls/data.md",
+        "contextTokens": 800000,
+        "timeoutSeconds": 300
+      },
+      {
+        "id": "loop-orchestrator",
+        "name": "Dirigenten 🎼",
+        "description": "Loop orchestration, code analysis, pipeline coordination, and multi-agent task routing. Maps to governance agent loop-orchestrator.",
+        "model": { "name": "gemini-2.5-flash", "provider": "google" },
+        "systemPromptFile": "/data/workspace/agent-souls/orchestrator.md",
+        "contextTokens": 800000,
+        "timeoutSeconds": 300
+      },
+      {
+        "id": "dream-weaver",
+        "name": "Stovsugeren 🌀",
+        "description": "Background harvesting, knowledge discovery, TED API monitoring, and autonomous data collection. Maps to governance agent dream-weaver.",
+        "model": { "name": "gemini-2.5-flash", "provider": "google" },
+        "systemPromptFile": "/data/workspace/agent-souls/harvester.md",
+        "contextTokens": 600000,
+        "timeoutSeconds": 180
+      },
+      {
+        "id": "frontend-sentinel",
+        "name": "Frontend Sentinel 🖥️",
+        "description": "Browser E2E execution, frontend verification, visual regression detection. Maps to governance agent frontend-sentinel.",
+        "model": { "name": "gemini-2.5-flash", "provider": "google" },
+        "systemPromptFile": "/data/workspace/agent-souls/frontend-sentinel.md",
+        "contextTokens": 600000,
+        "timeoutSeconds": 180
+      },
+      {
+        "id": "compliance-officer",
+        "name": "Compliance Officer ⚖️",
+        "description": "SRAG, GDPR, NIS2 compliance enforcement, audit trail generation, and regulatory reporting. Maps to governance agent compliance-officer.",
+        "model": { "name": "gemini-2.5-flash", "provider": "google" },
+        "systemPromptFile": "/data/workspace/agent-souls/compliance.md",
+        "contextTokens": 800000,
+        "timeoutSeconds": 300,
+        "heartbeat": { "enabled": true, "every": "15m" }
+      },
+      {
         "id": "skribleren",
         "name": "Skribleren ✍️",
         "description": "Langt-format skriveagent. Memos til hele bøger via Neo4j Context Folding.",
@@ -149,6 +213,60 @@
       "schedule": "0 7 * * *",
       "description": "OMEGA: Full daily situation report kl. 07:00",
       "message": "Produce comprehensive OMEGA SENTINEL SITREP. Call health skill with mode 'full'. Call widgetdc_mcp('omega.sitrep'), widgetdc_mcp('omega.compliance'), widgetdc_mcp('graph.stats'), widgetdc_mcp('get_sentinel_status'). Do NOT use web_search for API calls. Do NOT run shell commands. Produce full SITREP with: desk_status, compliance_grade, antipatterns, circular_deps, services_health, contract_sync, knowledge_gaps, sub_agent_status, threat_level, findings, actions_taken, standing_orders. End with Omega Sentinel - DAILY SITREP:",
+      "enabled": true,
+      "notify": true
+    },
+    {
+      "id": "compliance-scan",
+      "schedule": "0 * * * *",
+      "description": "COMPLIANCE: SRAG governance check every hour",
+      "agent": "compliance-officer",
+      "message": "Run SRAG governance check, validate security controls, check ServiceNow backlog. Report findings.",
+      "enabled": true,
+      "notify": true
+    },
+    {
+      "id": "news-harvest",
+      "schedule": "0 */4 * * *",
+      "description": "REGULATORY: Nordic/EU regulatory scan every 4 hours",
+      "agent": "regulatory-navigator",
+      "message": "Scan Nordic/EU regulatory updates, Folketinget, NIS2/DORA/AI Act changes. Persist findings to graph.",
+      "enabled": true,
+      "notify": true
+    },
+    {
+      "id": "graph-gardener",
+      "schedule": "0 */6 * * *",
+      "description": "GRAPH: Graph health and dedup every 6 hours",
+      "agent": "graph-steward",
+      "message": "Run graph health check, find orphans and duplicates, validate ontology, execute dedup via MERGE. Report before/after metrics.",
+      "enabled": true,
+      "notify": true
+    },
+    {
+      "id": "nightshift",
+      "schedule": "0 2 * * *",
+      "description": "DREAMWEAVER: Comprehensive nightly analysis at 02:00",
+      "agent": "dream-weaver",
+      "message": "Run comprehensive codebase analysis, check graph health, analyze dependencies, mine INTEROPERABILITY_GAPS.md. Compile briefing.",
+      "enabled": true,
+      "notify": true
+    },
+    {
+      "id": "dreamscape",
+      "schedule": "0 3 * * *",
+      "description": "DREAMWEAVER: Pattern synthesis at 03:00",
+      "agent": "dream-weaver",
+      "message": "Pattern synthesis across all services. Identify cross-repo anti-patterns, dead code, emerging issues. Store findings as AgentMemory.",
+      "enabled": true,
+      "notify": true
+    },
+    {
+      "id": "memory-consolidation",
+      "schedule": "0 4 * * *",
+      "description": "DREAMWEAVER: Memory consolidation at 04:00",
+      "agent": "dream-weaver",
+      "message": "Consolidate agent memories, prune stale patterns, merge duplicate insights, update health scores.",
       "enabled": true,
       "notify": true
     }

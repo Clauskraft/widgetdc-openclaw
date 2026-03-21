@@ -1,0 +1,19 @@
+{
+  "name": "@openclaw/skill-governance-bootstrap",
+  "version": "1.0.0",
+  "description": "OC-006: Governance bootstrap verification — validates agent bootstrap manifest, capability matrix, and config-template alignment",
+  "type": "module",
+  "main": "index.mjs",
+  "exports": {
+    ".": "./index.mjs"
+  },
+  "keywords": [
+    "openclaw",
+    "skill",
+    "governance",
+    "bootstrap",
+    "verification"
+  ],
+  "license": "UNLICENSED",
+  "private": true
+}
