@@ -1,0 +1,76 @@
+{
+  "version": "2026-03-14",
+  "policy_name": "runtime_compliance_policy",
+  "source": "MASTER_POLICY.md",
+  "coordination": {
+    "operational_truth": "linear",
+    "backlog_is_execution_authority": true,
+    "ongoing_reapproval_required": false,
+    "direct_agent_communication_mode": "enabled",
+    "execution_mode": "repo_local_parallel_under_central_policy",
+    "archive_only": [
+      "docs/HANDOVER_LOG.md"
+    ]
+  },
+  "mcp": {
+    "canonical_request_shape": "payload",
+    "legacy_request_shape_blocked_in_policy": [
+      "args"
+    ]
+  },
+  "graph": {
+    "parameterized_cypher_required": true,
+    "aura_only_for_writes": true,
+    "read_back_verification_required_for_material_writes": true
+  },
+  "branching": {
+    "integration_branch": "main"
+  },
+  "delivery": {
+    "executing_agent_owns_commit": true,
+    "executing_agent_owns_main_push": true,
+    "executing_agent_owns_deploy_follow_up": true,
+    "finished_code_must_not_remain_local_only": true,
+    "railway_follow_up_required_for_deploy_sensitive_work": true
+  },
+  "runtime_truth": {
+    "deploy_surfaces": [
+      "railway",
+      "aura"
+    ]
+  },
+  "infrastructure": {
+    "cross_repo_owner": "claude",
+    "specialist_fix_ownership_is_domain_local": true
+  },
+  "openclaw": {
+    "role": "execution_control_surface",
+    "is_source_of_truth": false,
+    "must_not_replace_linear_or_repo_artifacts": true
+  },
+  "workflow": {
+    "topology_source_mode": "single_canonical_source",
+    "tool_scope_enforcement_mode": "runtime_first"
+  },
+  "qa": {
+    "default_reviewer": "qwen3_5",
+    "global_blocking_gate": false,
+    "waiver_approvers": [
+      "claude",
+      "codex"
+    ]
+  },
+  "agents": {
+    "active_collaboration_set": [
+      "claude",
+      "codex",
+      "gemini",
+      "qwen3_5",
+      "qwen_code_smith"
+    ],
+    "direct_communication_required_for_cross_agent_work": true,
+    "core_agent_execution_mode": "federated_multi_repo",
+    "qwen_execution_mode": "federated_multi_repo"
+  },
+  "_synced_from": "WidgeTDC — DO NOT EDIT LOCALLY"
+}
