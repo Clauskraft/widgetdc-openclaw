@@ -145,7 +145,13 @@
     },
     "success_criteria": {
       "require_output_contract": true,
-      "require_run_receipt": true
+      "require_run_receipt": true,
+      "runtime_validation": {
+        "enabled": true,
+        "validator": "src/cron-output-validator.js",
+        "on_failure": "warn_and_deliver",
+        "tag_notifications": true
+      }
     }
   }
 }
