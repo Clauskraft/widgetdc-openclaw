@@ -26,6 +26,12 @@
  */
 
 import { widgetdc_mcp } from '../widgetdc-mcp/index';
+// Cron output validation — resolves agent-openclaw-output-contract (severity 4)
+import { validateCronOutput as _validateCronOutput, validateAndEnrich as _validateAndEnrich } from '../../src/cron-output-validator.js';
+
+// Re-export for external consumers
+export const validateCronOutput = _validateCronOutput;
+export const validateAndEnrich = _validateAndEnrich;
 
 const BACKEND = process.env.WIDGETDC_BACKEND_URL || 'https://backend-production-d3da.up.railway.app';
 
@@ -122,6 +128,51 @@ export async function notify(payload: SlackPayload): Promise<{ sent: boolean; er
     const msg = e instanceof Error ? e.message : String(e);
     return { sent: false, error: msg };
   }
+}
+
+/**
+ * Send cron job output to Slack with schema validation.
+ * Validates the output against the output_contract declared in CRON_ROUTING_PROFILE.json
+ * before dispatching. Invalid outputs are still sent but tagged with a validation warning.
+ *
+ * Resolves: agent-openclaw-output-contract (severity 4)
+ */
+export async function notifyCron(
+  cronJobId: string,
+  output: string | object,
+  payload: SlackPayload
+): Promise<{ sent: boolean; validation: { valid: boolean; missing: string[]; error: string | null }; error?: string }> {
+  let validation: { valid: boolean; missing: string[]; present: string[]; error: string | null };
+  try {
+    validation = await _validateCronOutput(cronJobId, output);
+  } catch {
+    validation = { valid: false, missing: [], present: [], error: 'validator unavailable' };
+  }
+
+  // Tag the message with validation status
+  const validationTag = validation.valid
+    ? '[contract: PASS]'
+    : `[contract: WARN — missing: ${validation.missing.join(', ')}${validation.error ? '; ' + validation.error : ''}]`;
+
+  const enrichedPayload: SlackPayload = {
+    ...payload,
+    message: `${validationTag}\n\n${payload.message}`,
+    fields: {
+      ...payload.fields,
+      'Contract Valid': String(validation.valid),
+      ...(validation.missing.length > 0 ? { 'Missing Fields': validation.missing.join(', ') } : {}),
+    },
+  };
+
+  if (!validation.valid) {
+    console.warn(`[slack-bridge] cron output validation failed for ${cronJobId}: missing=[${validation.missing.join(',')}] error=${validation.error}`);
+  }
+
+  const result = await notify(enrichedPayload);
+  return {
+    ...result,
+    validation: { valid: validation.valid, missing: validation.missing, error: validation.error },
+  };
 }
 
 /**

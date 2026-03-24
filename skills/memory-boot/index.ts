@@ -15,6 +15,15 @@
  */
 
 import { widgetdc_mcp } from '../widgetdc-mcp/index';
+// Memory schema versioning — resolves memory-agent-state-schema (severity 3)
+import {
+  CURRENT_SCHEMA_VERSION,
+  detectSchemaVersion,
+  migrateSnapshot,
+  stampSchemaVersion,
+  validateSnapshot,
+  cypherSchemaFields,
+} from '../../src/memory-schema.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -29,6 +38,9 @@ interface Memory {
   updatedAt?: string;
   version?: number;
   deleted?: boolean;
+  schema_version?: number;
+  snapshot_format?: string;
+  migration_applied_at?: string;
 }
 
 interface Lesson {
@@ -67,6 +79,10 @@ interface BootResult {
   contextFolds: ContextFold[];
   profile: AgentProfile | null;
   rehydrated: boolean;
+  schema: {
+    version: number;
+    migrations_applied: number;
+  };
   stats: {
     coreLoaded: number;
     workingLoaded: number;
@@ -157,16 +173,33 @@ async function loadArchivalMemories(agentId: string, limit = 50): Promise<Memory
 }
 
 /**
- * Load full hierarchical memory
+ * Load full hierarchical memory with schema migration applied.
+ * Returns the memory hierarchy and the count of migrations applied.
  */
-async function loadHierarchicalMemory(agentId: string): Promise<HierarchicalMemory> {
+async function loadHierarchicalMemory(agentId: string): Promise<{ hierarchy: HierarchicalMemory; migrationsApplied: number }> {
   const [core, working, archival] = await Promise.all([
     loadCoreMemories(agentId),
     loadWorkingMemories(agentId),
     loadArchivalMemories(agentId),
   ]);
 
-  return { core, working, archival };
+  // Apply schema migrations to all loaded snapshots
+  let migrationsApplied = 0;
+  const migrateAll = (memories: Memory[]): Memory[] =>
+    memories.map((m) => {
+      const result = migrateSnapshot(m as any);
+      if (result.migrated) migrationsApplied++;
+      return result.snapshot as unknown as Memory;
+    });
+
+  return {
+    hierarchy: {
+      core: migrateAll(core),
+      working: migrateAll(working),
+      archival: migrateAll(archival),
+    },
+    migrationsApplied,
+  };
 }
 
 // ─── Memory Consolidation ─────────────────────────────────────────────────
@@ -219,7 +252,7 @@ async function consolidateMemories(agentId: string): Promise<{
       summary = combinedContent.substring(0, 1000) + (combinedContent.length > 1000 ? '...' : '');
     }
 
-    // 4. Create archival memory
+    // 4. Create archival memory (with schema version stamp)
     const archivalId = `archival_${agentId}_${Date.now()}`;
     await widgetdc_mcp('graph.write_cypher', {
       query: `
@@ -231,7 +264,8 @@ async function consolidateMemories(agentId: string): Promise<{
             m.consolidatedFrom = $count,
             m.consolidatedIds = $ids,
             m.createdAt = datetime(),
-            m.updatedAt = datetime()
+            m.updatedAt = datetime(),
+            ${cypherSchemaFields()}
       `,
       params: {
         id: archivalId,
@@ -475,13 +509,15 @@ export async function memoryBoot(
   consolidateMemories(agentId).catch(() => {});
 
   // Load hierarchical memory + lessons + folds + profile in parallel
-  const [hierarchy, lessons, contextFolds, profile, rehydrated] = await Promise.all([
+  const [memoryResult, lessons, contextFolds, profile, rehydrated] = await Promise.all([
     loadHierarchicalMemory(agentId),
     loadLessons(agentId, options.quick ? 3 : 10),
     loadContextFolds(agentId, options.quick ? 2 : 5),
     loadAgentProfile(agentId),
     tryRehydrate(agentId),
   ]);
+
+  const { hierarchy, migrationsApplied } = memoryResult;
 
   // Calculate token estimate
   const totalChars =
@@ -511,6 +547,10 @@ export async function memoryBoot(
     contextFolds,
     profile,
     rehydrated,
+    schema: {
+      version: CURRENT_SCHEMA_VERSION,
+      migrations_applied: migrationsApplied,
+    },
     stats,
   };
 }
@@ -549,6 +589,7 @@ export async function memoryStatus(agentId = 'main'): Promise<unknown> {
 
     return {
       agentId,
+      schema_version: CURRENT_SCHEMA_VERSION,
       tiers: {
         core: tierCounts['core'] ?? 0,
         working: tierCounts['working'] ?? tierCounts['null'] ?? 0,
@@ -580,6 +621,9 @@ export async function memoryStore(
   const memoryId = `mem_${agentId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 
   try {
+    // Stamp schema version on new snapshots (memory-agent-state-schema compliance)
+    const stamped = stampSchemaVersion({ id: memoryId, agentId, value: content, type, tier });
+
     await widgetdc_mcp('graph.write_cypher', {
       query: `
         MERGE (m:AgentMemory {id: $id})
@@ -589,7 +633,8 @@ export async function memoryStore(
             m.tier = $tier,
             m.createdAt = datetime(),
             m.updatedAt = datetime(),
-            m.version = 1
+            m.version = 1,
+            ${cypherSchemaFields()}
       `,
       params: { id: memoryId, agentId, content, type, tier },
     });
@@ -601,7 +646,7 @@ export async function memoryStore(
       type,
     }).catch(() => {});
 
-    return { success: true, memoryId, agentId, type, tier };
+    return { success: true, memoryId, agentId, type, tier, schema_version: stamped.schema_version };
   } catch (e) {
     return { success: false, error: String(e) };
   }
