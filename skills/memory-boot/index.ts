@@ -18,10 +18,8 @@ import { widgetdc_mcp } from '../widgetdc-mcp/index';
 // Memory schema versioning — resolves memory-agent-state-schema (severity 3)
 import {
   CURRENT_SCHEMA_VERSION,
-  detectSchemaVersion,
   migrateSnapshot,
   stampSchemaVersion,
-  validateSnapshot,
   cypherSchemaFields,
 } from '../../src/memory-schema.js';
 

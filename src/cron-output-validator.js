@@ -124,6 +124,66 @@ export function resetContractCache() {
   contractCache = null;
 }
 
+// ─── JSON Extraction ─────────────────────────────────────────────────────
+
+/**
+ * Extract the first valid JSON object from a string by finding balanced braces.
+ * Handles cases where prose contains additional curly braces after the JSON.
+ *
+ * @param {string} text — The text to search for JSON
+ * @returns {object|null} — Parsed JSON object or null if none found
+ */
+function extractFirstValidJson(text) {
+  const startIdx = text.indexOf("{");
+  if (startIdx === -1) return null;
+
+  // Find balanced braces starting from the first '{'
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+
+  for (let i = startIdx; i < text.length; i++) {
+    const char = text[i];
+
+    if (escape) {
+      escape = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      escape = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) continue;
+
+    if (char === "{") {
+      depth++;
+    } else if (char === "}") {
+      depth--;
+      if (depth === 0) {
+        // Found a balanced JSON candidate
+        const candidate = text.slice(startIdx, i + 1);
+        try {
+          return JSON.parse(candidate);
+        } catch {
+          // Not valid JSON, try from the next '{'
+          const nextStart = text.indexOf("{", startIdx + 1);
+          if (nextStart === -1) return null;
+          return extractFirstValidJson(text.slice(nextStart));
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
 // ─── Validation ──────────────────────────────────────────────────────────
 
 /**
@@ -154,23 +214,14 @@ export async function validateCronOutput(cronJobId, output) {
   let parsed;
   if (typeof output === "string") {
     // Try to extract JSON from the output (agents sometimes wrap JSON in prose)
-    const jsonMatch = output.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
+    // Use balanced brace matching to find valid JSON objects
+    parsed = extractFirstValidJson(output);
+    if (parsed === null) {
       return {
         valid: false,
         missing: requiredFields,
         present: [],
-        error: "No JSON object found in output",
-      };
-    }
-    try {
-      parsed = JSON.parse(jsonMatch[0]);
-    } catch (e) {
-      return {
-        valid: false,
-        missing: requiredFields,
-        present: [],
-        error: `JSON parse error: ${e.message}`,
+        error: "No valid JSON object found in output",
       };
     }
   } else if (typeof output === "object" && output !== null) {
