@@ -15,6 +15,7 @@ npm-debug.log*
 .DS_Store
 
 .claude/
+.claude-octopus/
 .serena/
 .tmpdata/
 .tmp/
