@@ -478,6 +478,24 @@ app.use(autoMemoryBoot);
 // Minimal health endpoint for Railway.
 app.get("/setup/healthz", (_req, res) => res.json({ ok: true }));
 
+// Update HEARTBEAT.md in workspace (for Omega Sentinel)
+// Called by orchestrator to update heartbeat instructions
+app.post("/api/heartbeat", async (req, res) => {
+  const content = req.body?.content;
+  if (!content) {
+    return res.status(400).json({ ok: false, error: "content is required" });
+  }
+  try {
+    const heartbeatPath = path.join(WORKSPACE_DIR, "HEARTBEAT.md");
+    fs.mkdirSync(path.dirname(heartbeatPath), { recursive: true });
+    fs.writeFileSync(heartbeatPath, content, "utf8");
+    console.log(`[heartbeat] Updated HEARTBEAT.md at ${heartbeatPath}`);
+    res.json({ ok: true, path: heartbeatPath });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // Public health endpoint (no auth) so Railway can probe without /setup.
 // Keep this free of secrets.
 app.get("/healthz", async (_req, res) => {
