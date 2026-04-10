@@ -279,20 +279,51 @@ export async function hourlyReport(): Promise<unknown> {
       `• Context Folding: ${h.services.context_folding ? '✅' : '⚠️'}`,
     ].join('\n');
 
-    await fetch(`${BACKEND}/api/notifications/send`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(API_KEY ? { 'Authorization': `Bearer ${API_KEY}` } : {}) },
-      body: JSON.stringify({
-        level: h.overall.includes('healthy') ? 'success' : 'warning',
-        title: `🕐 Hourly Status: ${h.overall}`,
-        message: `*Platform:* ${h.overall}\n*Agents:* ${a.summary.active}/${a.agentCount} active\n\n*Services:*\n${serviceLines}\n\n*Agents:*\n${agentLines}`,
-        source: 'OpenClaw-Health',
-        channel: '#agent-status',
-      }),
-      signal: AbortSignal.timeout(10_000),
-    });
+    // Try backend notifications first, fallback to orchestrator tasks
+    try {
+      const notifyRes = await fetch(`${BACKEND}/api/notifications/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(API_KEY ? { 'Authorization': `Bearer ${API_KEY}` } : {}) },
+        body: JSON.stringify({
+          level: h.overall.includes('healthy') ? 'success' : 'warning',
+          title: `🕐 Hourly Status: ${h.overall}`,
+          message: `*Platform:* ${h.overall}\n*Agents:* ${a.summary.active}/${a.agentCount} active\n\n*Services:*\n${serviceLines}\n\n*Agents:*\n${agentLines}`,
+          source: 'OpenClaw-Health',
+          channel: '#agent-status',
+        }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!notifyRes.ok) {
+        console.warn(`[health] Slack notification returned ${notifyRes.status}, trying fallback`);
+        throw new Error(`HTTP ${notifyRes.status}`);
+      }
+    } catch (notifyErr) {
+      // Fallback: create an orchestrator task with the report
+      console.warn(`[health] Slack notification failed, creating task instead: ${notifyErr}`);
+      try {
+        const ORCHESTRATOR_URL = process.env.ORCHESTRATOR_URL || 'https://orchestrator-production-c27e.up.railway.app';
+        const ORCHESTRATOR_API_KEY = process.env.ORCHESTRATOR_API_KEY || 'WidgeTDC_Orch_2026';
+        await fetch(`${ORCHESTRATOR_URL}/api/tasks?agentId=main`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${ORCHESTRATOR_API_KEY}`,
+          },
+          body: JSON.stringify({
+            title: `Health Report: ${h.overall}`,
+            type: 'health_report',
+            instructions: `Platform: ${h.overall}\nAgents: ${a.summary.active}/${a.agentCount} active\n\nServices:\n${serviceLines}\n\nAgents:\n${agentLines}`,
+            priority: h.overall.includes('healthy') ? 'low' : 'medium',
+          }),
+          signal: AbortSignal.timeout(10_000),
+        });
+      } catch (taskErr) {
+        console.error(`[health] Fallback task creation also failed: ${taskErr}`);
+      }
+    }
   } catch (e) {
-    console.warn(`[health] Slack notification failed: ${e}`);
+    // Always log to console at minimum
+    console.error(`[health] Notification pipeline failed: ${e}`);
   }
 
   return {
