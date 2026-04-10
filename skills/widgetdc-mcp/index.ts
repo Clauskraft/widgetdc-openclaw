@@ -10,7 +10,37 @@
 
 const MCP_ENDPOINT = process.env.WIDGETDC_MCP_ENDPOINT || 'https://backend-production-d3da.up.railway.app/api/mcp/route';
 const BACKEND_URL = process.env.WIDGETDC_BACKEND_URL || 'https://backend-production-d3da.up.railway.app';
+const ORCHESTRATOR_URL = process.env.ORCHESTRATOR_URL || 'https://orchestrator-production-c27e.up.railway.app';
 const API_KEY = process.env.WIDGETDC_API_KEY || process.env.API_KEY || '';
+const ORCHESTRATOR_API_KEY = process.env.ORCHESTRATOR_API_KEY || 'WidgeTDC_Orch_2026';
+
+// ═══ REST API fallback for when MCP is unavailable ═══
+// Maps common MCP tools to REST API endpoints
+const REST_FALLBACKS: Record<string, { method: string; url: (payload: Record<string, unknown>) => string; transform?: (data: unknown) => unknown }> = {
+  'agent.task.fetch': {
+    method: 'GET',
+    url: (p) => `${ORCHESTRATOR_URL}/api/tasks?agentId=${p.agentId ?? 'main'}`,
+    transform: (data: any) => ({ result: data?.tasks ?? data?.data ?? [] }),
+  },
+  'agent.task.complete': {
+    method: 'POST',
+    url: (p) => `${ORCHESTRATOR_URL}/api/tasks/${p.taskId}/complete`,
+  },
+  'agent.task.fail': {
+    method: 'POST',
+    url: (p) => `${ORCHESTRATOR_URL}/api/tasks/${p.taskId}/fail`,
+  },
+  'system_health': {
+    method: 'GET',
+    url: () => `${ORCHESTRATOR_URL}/health`,
+    transform: (data: any) => ({ result: data }),
+  },
+  'graph.stats': {
+    method: 'GET',
+    url: () => `${ORCHESTRATOR_URL}/api/tools/data_graph_stats`,
+    transform: (data: any) => ({ result: data }),
+  },
+};
 
 // ═══ Opt 4: TTL Cache for frequently called tools ═══
 
@@ -99,6 +129,36 @@ export async function widgetdc_mcp(tool: string, payload: Record<string, unknown
 
   if (!res.ok) {
     const body = await res.text().catch(() => '');
+
+    // Try REST API fallback if MCP fails
+    const fallback = REST_FALLBACKS[tool];
+    if (fallback) {
+      try {
+        console.log(`[widgetdc-mcp] MCP failed for "${tool}", trying REST fallback`);
+        const url = fallback.url(payload);
+        const fallbackRes = await fetch(url, {
+          method: fallback.method,
+          headers: {
+            'Content-Type': 'application/json',
+            ...(fallback.method === 'GET'
+              ? { 'Authorization': `Bearer ${ORCHESTRATOR_API_KEY}` }
+              : { 'Authorization': `Bearer ${ORCHESTRATOR_API_KEY}` }),
+          },
+          ...(fallback.method === 'POST' ? { body: JSON.stringify(payload) } : {}),
+          signal: AbortSignal.timeout(15000),
+        });
+        if (fallbackRes.ok) {
+          const fallbackData = await fallbackRes.json();
+          const result = fallback.transform ? fallback.transform(fallbackData) : { result: fallbackData };
+          // Cache the fallback result
+          if (ttl) setCache(cacheKey, result, ttl);
+          return result;
+        }
+      } catch (fallbackErr) {
+        console.warn(`[widgetdc-mcp] REST fallback also failed for "${tool}": ${fallbackErr}`);
+      }
+    }
+
     throw new Error(`MCP tool "${tool}" failed: ${res.status} ${res.statusText}${body ? ` — ${body}` : ''}`);
   }
 
